@@ -1,0 +1,22 @@
+OS := $(shell uname)
+
+# OSX
+ifeq (${OS}, Darwin)
+	PREFIX ?= /opt/local
+	LUALIB ?= lua
+endif
+
+# FreeBSD
+ifeq (${OS}, FreeBSD)
+	LUAINC ?= ${PREFIX}/include/lua51
+endif
+
+# Linux
+ifeq (${OS}, Linux)
+	PREFIX ?= /usr
+
+	# Arch, Gentoo
+	ifneq ($(wildcard /etc/arch-release /etc/gentoo-release), )
+		LUALIB ?= lua
+	endif
+endif

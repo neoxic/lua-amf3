@@ -1,0 +1,44 @@
+AMF3 encoding/decoding library for Lua
+Copyright (C) 2012 Arseny Vakhrushev <arseny.vakhrushev@gmail.com>
+arseny.vakhrushev@mail.com
+
+
+Description
+-----------
+
+The library provides two functions:
+
+amf3.encode(obj)
+
+- Encodes 'obj' into an AMF3 representation and returns it as a string;
+- References are fully supported.
+
+amf3.decode(str [, pos])
+
+- Decodes an object from 'str' and returns it as the first value;
+- An optional argument specifies the position starting from 0 where decoding begins;
+- The number of bytes read from the string is returned as the second value;
+- All AMF3 types are fully supported except for OBJECT (please use ARRAY instead).
+
+
+Installation
+------------
+
+* Linux, OSX (Darwin):
+
+	sudo make install
+
+* FreeBSD:
+
+	sudo gmake install
+
+If you need specific adjustments, please refer to 'Makefile' and 'config'.
+For example, you might want to change the installation prefix in place:
+
+	sudo PREFIX=/your/path make install
+
+
+History
+-------
+
+Version 1.0.0 [19/Jun/2012]
