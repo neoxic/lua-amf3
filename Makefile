@@ -9,7 +9,7 @@ LIB  = amf3.so
 SRCS = src/amf3.c src/decode.c src/encode.c src/strap.c
 OBJS = ${SRCS:.c=.o}
 
-CFLAGS  += -O0 -g -fPIC -std=c99 -pedantic -Wall -Wextra -Wshadow -Wformat -Wundef -Wwrite-strings -I${LUAINC}
+CFLAGS  += -O2 -fPIC -std=c99 -pedantic -Wall -Wextra -Wshadow -Wformat -Wundef -Wwrite-strings -I${LUAINC}
 LDFLAGS += -l${LUALIB} -L${PREFIX}/lib
 
 .PHONY: all
