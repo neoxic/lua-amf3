@@ -26,7 +26,7 @@ int amf3_decode(lua_State *L) {
 	size_t size;
 	const char* buf = luaL_checklstring(L, 1, &size);
 	int pos = luaL_optint(L, 2, 0);
-	luaL_argcheck(L, pos >= 0, 1, "position may not be negative");
+	luaL_argcheck(L, pos >= 0, 2, "position may not be negative");
 	lua_settop(L, 1);
 	lua_newtable(L);
 	lua_newtable(L);
@@ -35,8 +35,8 @@ int amf3_decode(lua_State *L) {
 }
 
 const struct luaL_Reg amf3_lib[] = {
-	{ "encode",	amf3_encode },
-	{ "decode",	amf3_decode },
+	{ "encode", amf3_encode },
+	{ "decode", amf3_decode },
 	{ 0, 0 }
 };
 
@@ -46,7 +46,7 @@ int luaopen_amf3(lua_State* L) {
 	lua_pushliteral(L, "Copyright (C) 2012 Arseny Vakhrushev");
 	lua_settable(L, -3);
 	lua_pushliteral(L, "_DESCRIPTION");
-	lua_pushliteral(L, "AMF3 encoder/decoder for Lua");
+	lua_pushliteral(L, "AMF3 encoding/decoding library for Lua");
 	lua_settable(L, -3);
 	lua_pushliteral(L, "_VERSION");
 	lua_pushliteral(L, "amf3 " VERSION);
