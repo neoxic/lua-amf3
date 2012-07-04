@@ -15,8 +15,8 @@ endif
 ifeq (${OS}, Linux)
 	PREFIX ?= /usr
 
-	# Arch, Gentoo
-	ifneq ($(wildcard /etc/arch-release /etc/gentoo-release), )
+	# Arch, Gentoo, OpenSUSE
+	ifneq ($(wildcard /etc/arch-release /etc/gentoo-release /etc/SuSE-release), )
 		LUALIB ?= lua
 	endif
 endif
