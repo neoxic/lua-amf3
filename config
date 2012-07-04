@@ -19,4 +19,10 @@ ifeq (${OS}, Linux)
 	ifneq ($(wildcard /etc/arch-release /etc/gentoo-release /etc/SuSE-release), )
 		LUALIB ?= lua
 	endif
+
+	# Debian
+	ifneq ($(wildcard /etc/debian_version), )
+		LUAINC ?= ${PREFIX}/include/lua5.1
+		LUALIB ?= lua5.1
+	endif
 endif
