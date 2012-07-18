@@ -119,20 +119,20 @@ void encode(strap_t *strap, lua_State *L, int idx, int sidx, int oidx) {
 		case LUA_TTABLE: {
 			encodeChar(strap, AMF3_ARRAY);
 			if (encodeRef(strap, L, idx, oidx)) break;
-			int dense = 1, size = 0;
+			int dense = 1, len = 0;
 			for (lua_pushnil(L); lua_next(L, idx); lua_pop(L, 1)) {
-				++size;
-				if ((lua_type(L, -2) != LUA_TNUMBER) || (lua_tointeger(L, -2) != size)) {
+				++len;
+				if ((lua_type(L, -2) != LUA_TNUMBER) || (lua_tointeger(L, -2) != len)) {
 					lua_pop(L, 2);
 					dense = 0;
 					break;
 				}
 			}
 			if (dense) { // dense array
-				if (size > AMF3_MAX_INT) size = AMF3_MAX_INT;
-				encodeU29(strap, (size << 1) | 1);
+				if (len > AMF3_MAX_INT) len = AMF3_MAX_INT;
+				encodeU29(strap, (len << 1) | 1);
 				encodeChar(strap, 0x01);
-				for (int n = 1; n <= size; ++n) {
+				for (int n = 1; n <= len; ++n) {
 					lua_rawgeti(L, idx, n);
 					encode(strap, L, -1, sidx, oidx);
 					lua_pop(L, 1);

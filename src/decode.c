@@ -9,7 +9,7 @@
 #include "amf3.h"
 
 
-int decodeU29(int *val, const char *buf, int pos, int size, lua_State *L) {
+int decodeU29(lua_State *L, const char *buf, int pos, int size, int *val) {
 	int ofs = 0, res = 0, tmp;
 	do {
 		if ((pos + ofs) >= size) return luaL_error(L, "insufficient U29 data at position %d", pos);
@@ -26,7 +26,7 @@ int decodeU29(int *val, const char *buf, int pos, int size, lua_State *L) {
 	return ofs;
 }
 
-int decodeDouble(double *val, const char *buf, int pos, int size, lua_State *L) {
+int decodeDouble(lua_State *L, const char *buf, int pos, int size, double *val) {
 	if ((pos + 8) > size) return luaL_error(L, "insufficient DOUBLE data at position %d", pos);
 	int64_t l = 0;
 	for (int i = 0; i < 8; ++i) {
@@ -41,16 +41,24 @@ int decodeDouble(double *val, const char *buf, int pos, int size, lua_State *L) 
 	return 8;
 }
 
-int decodeStr(lua_State *L, const char* buf, int pos, int size, int ridx, int blob) {
-	int old = pos, pfx;
-	pos += decodeU29(&pfx, buf, pos, size, L);
-	if (!(pfx & 1)) lua_rawgeti(L, ridx, (pfx >> 1) + 1);
+int decodeRef(lua_State *L, const char *buf, int pos, int size, int ridx, int *val) {
+	int pfx, ofs = decodeU29(L, buf, pos, size, &pfx);
+	if (pfx & 1) *val = pfx >> 1;
 	else {
-		pfx >>= 1;
-		if ((pos + pfx) > size) return luaL_error(L, "insufficient data of size %d at position %d", pfx, pos);
-		lua_pushlstring(L, buf + pos, pfx);
-		pos += pfx;
-		if (blob || pfx) { // empty string is never sent by reference
+		*val = -1;
+		lua_rawgeti(L, ridx, (pfx >> 1) + 1);
+	}
+	return ofs;
+}
+
+int decodeStr(lua_State *L, const char* buf, int pos, int size, int ridx, int blob) {
+	int old = pos, len;
+	pos += decodeRef(L, buf, pos, size, ridx, &len);
+	if (len >= 0) {
+		if ((pos + len) > size) return luaL_error(L, "insufficient data of length %d at position %d", len, pos);
+		lua_pushlstring(L, buf + pos, len);
+		pos += len;
+		if (blob || len) { // empty string is never sent by reference
 			lua_pushvalue(L, -1);
 			luaL_ref(L, ridx);
 		}
@@ -75,14 +83,14 @@ int decode(lua_State* L, const char* buf, int pos, int size, int sidx, int oidx)
 			break;
 		case AMF3_INTEGER: {
 			int i;
-			pos += decodeU29(&i, buf, pos, size, L);
+			pos += decodeU29(L, buf, pos, size, &i);
 			if (i & 0x10000000) i -= 0x20000000;
 			lua_pushinteger(L, i);
 			break;
 		}
 		case AMF3_DOUBLE: {
 			double d;
-			pos += decodeDouble(&d, buf, pos, size, L);
+			pos += decodeDouble(L, buf, pos, size, &d);
 			lua_pushnumber(L, d);
 			break;
 		}
@@ -95,27 +103,20 @@ int decode(lua_State* L, const char* buf, int pos, int size, int sidx, int oidx)
 			pos += decodeStr(L, buf, pos, size, oidx, 1);
 			break;
 		case AMF3_DATE: {
-			int pfx;
-			pos += decodeU29(&pfx, buf, pos, size, L);
-			if (!(pfx & 1)) {
-				lua_rawgeti(L, oidx, (pfx >> 1) + 1);
-				break;
-			}
+			int tmp;
+			pos += decodeRef(L, buf, pos, size, oidx, &tmp);
+			if (tmp < 0) break;
 			double d;
-			pos += decodeDouble(&d, buf, pos, size, L);
+			pos += decodeDouble(L, buf, pos, size, &d);
 			lua_pushnumber(L, d);
 			lua_pushvalue(L, -1);
 			luaL_ref(L, oidx);
 			break;
 		}
 		case AMF3_ARRAY: {
-			int pfx;
-			pos += decodeU29(&pfx, buf, pos, size, L);
-			if (!(pfx & 1)) {
-				lua_rawgeti(L, oidx, (pfx >> 1) + 1);
-				break;
-			}
-			pfx >>= 1;
+			int len;
+			pos += decodeRef(L, buf, pos, size, oidx, &len);
+			if (len < 0) break;
 			lua_newtable(L);
 			lua_pushvalue(L, -1);
 			luaL_ref(L, oidx);
@@ -128,7 +129,7 @@ int decode(lua_State* L, const char* buf, int pos, int size, int sidx, int oidx)
 				pos += decode(L, buf, pos, size, sidx, oidx);
 				lua_rawset(L, -3);
 			}
-			for (int n = 1; n <= pfx; ++n) { // dense portion
+			for (int n = 1; n <= len; ++n) { // dense portion
 				pos += decode(L, buf, pos, size, sidx, oidx);
 				lua_rawseti(L, -2, n);
 			}
