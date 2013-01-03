@@ -62,7 +62,7 @@ void encodeDouble(strap_t *strap, double val) {
 int encodeRef(strap_t *strap, lua_State *L, int idx, int ridx) {
 	lua_pushvalue(L, idx);
 	lua_rawget(L, ridx);
-	int ref = lua_isnumber(L, -1) ? lua_tointeger(L, -1) : -1;
+	int ref = lua_isnil(L, -1) ? -1 : lua_tointeger(L, -1);
 	lua_pop(L, 1);
 	if (ref >= 0) {
 		encodeU29(strap, ref << 1);
