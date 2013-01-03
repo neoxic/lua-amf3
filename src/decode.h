@@ -9,4 +9,4 @@
 #include "strap.h"
 
 
-int decode(lua_State* L, const char* buf, int pos, int size, int sidx, int oidx);
+int decode(lua_State* L, const char* buf, int pos, int size, int sidx, int oidx, int tidx);

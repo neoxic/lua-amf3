@@ -30,7 +30,8 @@ int amf3_decode(lua_State *L) {
 	lua_settop(L, 1);
 	lua_newtable(L);
 	lua_newtable(L);
-	lua_pushinteger(L, decode(L, buf, pos, size, 2, 3));
+	lua_newtable(L);
+	lua_pushinteger(L, decode(L, buf, pos, size, 2, 3, 4));
 	return 2;
 }
 
