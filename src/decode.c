@@ -159,7 +159,7 @@ int decode(lua_State* L, const char* buf, int pos, int size, int sidx, int oidx,
 				}
 			} else { // existing class definition
 				lua_rawgeti(L, tidx, pfx + 1);
-				if (!lua_istable(L, -1)) return luaL_error(L, "missing class definition #%d at position %d", pfx, pos);
+				if (lua_isnil(L, -1)) return luaL_error(L, "missing class definition #%d at position %d", pfx, pos);
 				lua_rawgeti(L, -1, 1);
 				pfx = lua_tointeger(L, -1);
 				lua_pop(L, 1);
