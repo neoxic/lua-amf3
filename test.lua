@@ -1,5 +1,5 @@
 --
--- Copyright (C) 2012 Arseny Vakhrushev <arseny.vakhrushev@gmail.com>
+-- Copyright (C) 2012-2013 Arseny Vakhrushev <arseny.vakhrushev@gmail.com>
 -- Please read the LICENSE file for license details
 --
 
