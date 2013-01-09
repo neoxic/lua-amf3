@@ -10,15 +10,19 @@ The library provides two functions:
 amf3.encode(obj)
 
 - Encodes 'obj' into an AMF3 representation and returns it as a string.
-- References are fully supported.
+- A table with plain numeric keys 1..n without gaps is encoded as a dense AMF3
+  array (sequence) with the corresponding indices 0..n-1. Otherwise, the keys
+  are converted into strings and the table is encoded as an associative AMF3
+  array.
 
 amf3.decode(str [, pos])
 
 - Decodes an object from 'str' and returns it as the first value.
 - An optional argument specifies offset (>=0) in the string.
 - The number of bytes read from the string is returned as the second value.
-- The AMF3 Object type is decoded into a table with additional '_class' (class name)
-  and '_data' (externalizable object's data) fields when applicable.
+- The AMF3 Object type is converted into a table with the additional '_class'
+  (class name) and '_data' (externalizable object's data) fields set when
+  applicable.
 
 
 Installation
