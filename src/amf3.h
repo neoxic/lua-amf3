@@ -1,11 +1,11 @@
 /*
-** Copyright (C) 2012-2013 Arseny Vakhrushev <arseny.vakhrushev@gmail.com>
+** Copyright (C) 2012-2013 Arseny Vakhrushev <arseny.vakhrushev at gmail dot com>
 ** Please read the LICENSE file for license details
 */
 
 #pragma once
 
-#define VERSION "1.0.0"
+#define VERSION "1.0.1"
 
 #define AMF3_UNDEFINED   0x00
 #define AMF3_NULL        0x01

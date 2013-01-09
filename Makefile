@@ -4,9 +4,10 @@ PREFIX ?= /usr/local
 LIBDIR ?= ${PREFIX}/lib/lua/5.1
 LUAINC ?= ${PREFIX}/include
 LUALIB ?= lua-5.1
+LUABIN ?= lua
 
 LIB  = amf3.so
-SRCS = src/amf3.c src/decode.c src/encode.c src/strap.c
+SRCS = src/amf3.c src/amf3_encode.c src/amf3_decode.c
 OBJS = ${SRCS:.c=.o}
 
 CFLAGS  += -O2 -fPIC -std=c99 -pedantic -Wall -Wextra -Wshadow -Wformat -Wundef -Wwrite-strings -I${LUAINC}
@@ -27,4 +28,4 @@ install: all
 	install ${LIB} ${LIBDIR}
 
 test:
-	lua test.lua
+	${LUABIN} test.lua

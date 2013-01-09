@@ -9,6 +9,7 @@ endif
 # FreeBSD
 ifeq (${OS}, FreeBSD)
 	LUAINC ?= ${PREFIX}/include/lua51
+	LUABIN ?= lua-5.1
 endif
 
 # Linux

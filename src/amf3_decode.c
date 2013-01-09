@@ -1,15 +1,16 @@
 /*
-** Copyright (C) 2012-2013 Arseny Vakhrushev <arseny.vakhrushev@gmail.com>
+** Copyright (C) 2012-2013 Arseny Vakhrushev <arseny.vakhrushev at gmail dot com>
 ** Please read the LICENSE file for license details
 */
 
 #include <stdint.h>
 #include <lauxlib.h>
-#include "decode.h"
 #include "amf3.h"
+#include "amf3_decode.h"
 
 
-int decodeU29(lua_State *L, const char *buf, int pos, int size, int *val) {
+static int decodeU29(lua_State *L, const char *buf, int pos, int size, int *val) {
+	*val = 0; // suppress spurious 'maybe uninitialized' warnings
 	int ofs = 0, res = 0, tmp;
 	do {
 		if ((pos + ofs) >= size) return luaL_error(L, "insufficient integer data at position %d", pos);
@@ -26,7 +27,8 @@ int decodeU29(lua_State *L, const char *buf, int pos, int size, int *val) {
 	return ofs;
 }
 
-int decodeDouble(lua_State *L, const char *buf, int pos, int size, double *val) {
+static int decodeDouble(lua_State *L, const char *buf, int pos, int size, double *val) {
+	*val = 0; // suppress spurious 'maybe uninitialized' warnings
 	if ((pos + 8) > size) return luaL_error(L, "insufficient number data at position %d", pos);
 	int64_t l = 0;
 	for (int i = 0; i < 8; ++i) {
@@ -41,7 +43,7 @@ int decodeDouble(lua_State *L, const char *buf, int pos, int size, double *val) 
 	return 8;
 }
 
-int decodeRef(lua_State *L, const char *buf, int pos, int size, int ridx, int *val) {
+static int decodeRef(lua_State *L, const char *buf, int pos, int size, int ridx, int *val) {
 	int pfx, ofs = decodeU29(L, buf, pos, size, &pfx);
 	if (pfx & 1) *val = pfx >> 1;
 	else {
@@ -51,7 +53,7 @@ int decodeRef(lua_State *L, const char *buf, int pos, int size, int ridx, int *v
 	return ofs;
 }
 
-int decodeStr(lua_State *L, const char* buf, int pos, int size, int ridx, int loose) {
+static int decodeStr(lua_State *L, const char* buf, int pos, int size, int ridx, int loose) {
 	int old = pos, len;
 	pos += decodeRef(L, buf, pos, size, ridx, &len);
 	if (len >= 0) {
@@ -66,7 +68,7 @@ int decodeStr(lua_State *L, const char* buf, int pos, int size, int ridx, int lo
 	return pos - old;
 }
 
-int decode(lua_State* L, const char* buf, int pos, int size, int sidx, int oidx, int tidx) {
+static int decodeVal(lua_State* L, const char* buf, int pos, int size, int sidx, int oidx, int tidx) {
 	if (pos >= size) return luaL_error(L, "insufficient type data at position %d", pos);
 	int old = pos;
 	lua_checkstack(L, 5);
@@ -126,11 +128,11 @@ int decode(lua_State* L, const char* buf, int pos, int size, int sidx, int oidx,
 					lua_pop(L, 1);
 					break;
 				}
-				pos += decode(L, buf, pos, size, sidx, oidx, tidx);
+				pos += decodeVal(L, buf, pos, size, sidx, oidx, tidx);
 				lua_rawset(L, -3);
 			}
 			for (int n = 1; n <= len; ++n) { // dense portion
-				pos += decode(L, buf, pos, size, sidx, oidx, tidx);
+				pos += decodeVal(L, buf, pos, size, sidx, oidx, tidx);
 				lua_rawseti(L, -2, n);
 			}
 			break;
@@ -165,13 +167,13 @@ int decode(lua_State* L, const char* buf, int pos, int size, int sidx, int oidx,
 				lua_pop(L, 1);
 			}
 			if (pfx & 1) { // externalizable
-				pos += decode(L, buf, pos, size, sidx, oidx, tidx);
+				pos += decodeVal(L, buf, pos, size, sidx, oidx, tidx);
 				lua_setfield(L, -3, "_data");
 			} else {
 				int n = pfx >> 2;
 				for (int i = 0; i < n; ++i) {
 					lua_rawgeti(L, -1, i + 3);
-					pos += decode(L, buf, pos, size, sidx, oidx, tidx);
+					pos += decodeVal(L, buf, pos, size, sidx, oidx, tidx);
 					lua_rawset(L, -4);
 				}
 				if (pfx & 2) { // dynamic
@@ -181,7 +183,7 @@ int decode(lua_State* L, const char* buf, int pos, int size, int sidx, int oidx,
 							lua_pop(L, 1);
 							break;
 						}
-						pos += decode(L, buf, pos, size, sidx, oidx, tidx);
+						pos += decodeVal(L, buf, pos, size, sidx, oidx, tidx);
 						lua_rawset(L, -4);
 					}
 				}
@@ -196,4 +198,17 @@ int decode(lua_State* L, const char* buf, int pos, int size, int sidx, int oidx,
 			return luaL_error(L, "invalid type at position %d", pos - 1);
 	}
 	return pos - old;
+}
+
+int amf3_decode(lua_State *L) {
+	size_t size;
+	const char* buf = luaL_checklstring(L, 1, &size);
+	int pos = luaL_optint(L, 2, 0);
+	luaL_argcheck(L, pos >= 0, 2, "position may not be negative");
+	lua_settop(L, 1);
+	lua_newtable(L);
+	lua_newtable(L);
+	lua_newtable(L);
+	lua_pushinteger(L, decodeVal(L, buf, pos, size, 2, 3, 4));
+	return 2;
 }
