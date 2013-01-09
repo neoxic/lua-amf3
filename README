@@ -9,15 +9,16 @@ The library provides two functions:
 
 amf3.encode(obj)
 
-- Encodes 'obj' into an AMF3 representation and returns it as a string;
+- Encodes 'obj' into an AMF3 representation and returns it as a string.
 - References are fully supported.
 
 amf3.decode(str [, pos])
 
-- Decodes an object from 'str' and returns it as the first value;
-- An optional argument specifies the offset (>=0) in the string;
-- The number of bytes read from the string is returned as the second value;
-- All AMF3 types are fully supported except for OBJECT (please use ARRAY instead).
+- Decodes an object from 'str' and returns it as the first value.
+- An optional argument specifies offset (>=0) in the string.
+- The number of bytes read from the string is returned as the second value.
+- The AMF3 Object type is decoded into a table with additional '_class' (class name)
+  and '_data' (externalizable object's data) fields when applicable.
 
 
 Installation
