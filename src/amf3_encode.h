@@ -3,9 +3,13 @@
 ** Please read the LICENSE file for license details
 */
 
-#pragma once
+#ifndef amf3_encode_h
+#define amf3_encode_h
 
 #include <lua.h>
 
 
 int amf3_encode(lua_State *L);
+
+
+#endif

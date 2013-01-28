@@ -3,7 +3,9 @@
 ** Please read the LICENSE file for license details
 */
 
-#pragma once
+#ifndef amf3_h
+#define amf3_h
+
 
 #define VERSION "1.0.1"
 
@@ -21,5 +23,8 @@
 #define AMF3_XML         0x0b
 #define AMF3_BYTEARRAY   0x0c
 
-#define AMF3_MAX_INT     268435455 //  (2^28)-1
-#define AMF3_MIN_INT    -268435456 // -(2^28)
+#define AMF3_MAX_INT     268435455 /*  (2^28)-1 */
+#define AMF3_MIN_INT    -268435456 /* -(2^28)   */
+
+
+#endif

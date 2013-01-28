@@ -16,7 +16,7 @@ static const struct luaL_Reg amf3_lib[] = {
 };
 
 
-LUALIB_API int luaopen_amf3(lua_State* L) {
+int luaopen_amf3(lua_State* L) {
 	luaL_register(L, "amf3", amf3_lib);
 	lua_pushliteral(L, "_COPYRIGHT");
 	lua_pushliteral(L, "Copyright (C) 2012-2013 Arseny Vakhrushev");

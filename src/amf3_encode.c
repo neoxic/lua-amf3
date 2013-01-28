@@ -3,7 +3,6 @@
 ** Please read the LICENSE file for license details
 */
 
-#include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
 #include <lauxlib.h>
@@ -15,7 +14,7 @@ typedef struct Chunk Chunk;
 typedef struct Strap Strap;
 
 struct Chunk {
-	char  buf[1000]; // some suitable chunk size to store both small and big buffers well enough and to fit 1Kb memory block
+	char  buf[1000]; /* some suitable chunk size to store both small and big buffers well enough and to fit 1Kb memory block */
 	int   size;
 	Chunk *next;
 };
@@ -42,7 +41,7 @@ static void appendStrap(Strap *st, const char *buf, int size) {
 	Chunk *ch = st->last;
 	if (!ch) {
 		ch = st->first = st->last = newChunk();
-		if (!ch) return; // out of memory
+		if (!ch) return; /* out of memory */
 	}
 	for ( ;; ) {
 		int avail = sizeof(ch->buf) - ch->size;
@@ -50,7 +49,7 @@ static void appendStrap(Strap *st, const char *buf, int size) {
 		memcpy(ch->buf + ch->size, buf, avail);
 		ch->size += avail;
 		ch->next = newChunk();
-		if (!ch->next) return; // out of memory
+		if (!ch->next) return; /* out of memory */
 		ch = st->last = ch->next;
 		buf += avail;
 		size -= avail;
@@ -61,11 +60,12 @@ static void appendStrap(Strap *st, const char *buf, int size) {
 
 static void flushStrap(Strap *st, lua_State *L) {
 	luaL_Buffer b;
-	luaL_buffinit(L, &b);
 	Chunk *ch = st->first;
+	Chunk *next;
+	luaL_buffinit(L, &b);
 	while (ch) {
 		luaL_addlstring(&b, ch->buf, ch->size);
-		Chunk *next = ch->next;
+		next = ch->next;
 		free(ch);
 		ch = next;
 	}
@@ -110,23 +110,24 @@ static void encodeU29(Strap *st, int val) {
 }
 
 static void encodeDouble(Strap *st, double val) {
-	union {
-		double d;
-		int64_t l;
-	} u = { val };
-	int64_t l = u.l;
+	union { int i; char c; } t;
+	union { double d; char c[8]; } u;
 	char buf[8];
-	for (int i = 0; i < 8; ++i) {
-		buf[7 - i] = l;
-		l >>= 8;
+	t.i = 1;
+	u.d = val;
+	if (!t.c) memcpy(buf, u.c, 8); /* big-endian machine */
+	else {
+		int i;
+		for (i = 0; i < 8; ++i) buf[7 - i] = u.c[i];
 	}
 	appendStrap(st, buf, 8);
 }
 
 static int encodeRef(Strap *st, lua_State *L, int idx, int ridx) {
+	int ref;
 	lua_pushvalue(L, idx);
 	lua_rawget(L, ridx);
-	int ref = lua_isnil(L, -1) ? -1 : lua_tointeger(L, -1);
+	ref = lua_isnil(L, -1) ? -1 : lua_tointeger(L, -1);
 	lua_pop(L, 1);
 	if (ref >= 0) {
 		encodeU29(st, ref << 1);
@@ -146,7 +147,7 @@ static int encodeRef(Strap *st, lua_State *L, int idx, int ridx) {
 static void encodeStr(Strap *st, lua_State *L, int idx, int ridx) {
 	size_t len;
 	const char *str = lua_tolstring(L, idx, &len);
-	if (len && encodeRef(st, L, idx, ridx)) return; // empty string is never sent by reference
+	if (len && encodeRef(st, L, idx, ridx)) return; /* empty string is never sent by reference */
 	if (len > AMF3_MAX_INT) len = AMF3_MAX_INT;
 	encodeU29(st, (len << 1) | 1);
 	appendStrap(st, str, len);
@@ -181,9 +182,9 @@ static void encodeVal(Strap *st, lua_State *L, int idx, int sidx, int oidx) {
 			break;
 		}
 		case LUA_TTABLE: {
+			int len = 0, dense = 1;
 			encodeChar(st, AMF3_ARRAY);
 			if (encodeRef(st, L, idx, oidx)) break;
-			int dense = 1, len = 0;
 			for (lua_pushnil(L); lua_next(L, idx); lua_pop(L, 1)) {
 				++len;
 				if ((lua_type(L, -2) != LUA_TNUMBER) || (lua_tointeger(L, -2) != len)) {
@@ -192,28 +193,29 @@ static void encodeVal(Strap *st, lua_State *L, int idx, int sidx, int oidx) {
 					break;
 				}
 			}
-			if (dense) { // dense array
+			if (dense) { /* dense array */
+				int n;
 				if (len > AMF3_MAX_INT) len = AMF3_MAX_INT;
 				encodeU29(st, (len << 1) | 1);
 				encodeChar(st, 0x01);
-				for (int n = 1; n <= len; ++n) {
+				for (n = 1; n <= len; ++n) {
 					lua_rawgeti(L, idx, n);
 					encodeVal(st, L, -1, sidx, oidx);
 					lua_pop(L, 1);
 				}
-			} else { // associative array
+			} else { /* associative array */
 				encodeChar(st, 0x01);
 				for (lua_pushnil(L); lua_next(L, idx); lua_pop(L, 1)) {
-					switch (lua_type(L, -2)) { // key type
+					switch (lua_type(L, -2)) { /* key type */
 						case LUA_TNUMBER: {
 							lua_pushvalue(L, -2);
-							lua_tostring(L, -1); // convert numeric key into string
+							lua_tostring(L, -1); /* convert numeric key into string */
 							encodeStr(st, L, -1, sidx);
 							lua_pop(L, 1);
 							break;
 						}
 						case LUA_TSTRING: {
-							if (!lua_objlen(L, -2)) continue; // empty key can't be represented in AMF3
+							if (!lua_objlen(L, -2)) continue; /* empty key can't be represented in AMF3 */
 							encodeStr(st, L, -2, sidx);
 							break;
 						}
@@ -230,11 +232,11 @@ static void encodeVal(Strap *st, lua_State *L, int idx, int sidx, int oidx) {
 }
 
 int amf3_encode(lua_State *L) {
+	Strap st;
 	luaL_checkany(L, 1);
 	lua_settop(L, 1);
 	lua_newtable(L);
 	lua_newtable(L);
-	Strap st;
 	initStrap(&st);
 	encodeVal(&st, L, 1, 2, 3);
 	flushStrap(&st, L);

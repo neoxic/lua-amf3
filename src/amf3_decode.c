@@ -3,15 +3,15 @@
 ** Please read the LICENSE file for license details
 */
 
-#include <stdint.h>
+#include <string.h>
 #include <lauxlib.h>
 #include "amf3.h"
 #include "amf3_decode.h"
 
 
 static int decodeU29(lua_State *L, const char *buf, int pos, int size, int *val) {
-	*val = 0; // suppress spurious 'maybe uninitialized' warnings
 	int ofs = 0, res = 0, tmp;
+	*val = 0;
 	do {
 		if ((pos + ofs) >= size) return luaL_error(L, "insufficient integer data at position %d", pos);
 		tmp = buf[pos + ofs];
@@ -28,17 +28,16 @@ static int decodeU29(lua_State *L, const char *buf, int pos, int size, int *val)
 }
 
 static int decodeDouble(lua_State *L, const char *buf, int pos, int size, double *val) {
-	*val = 0; // suppress spurious 'maybe uninitialized' warnings
+	union { int i; char c; } t;
+	union { double d; char c[8]; } u;
+	*val = 0;
 	if ((pos + 8) > size) return luaL_error(L, "insufficient number data at position %d", pos);
-	int64_t l = 0;
-	for (int i = 0; i < 8; ++i) {
-		l <<= 8;
-		l |= buf[pos + i] & 0xff;
+	t.i = 1;
+	if (!t.c) memcpy(u.c, buf + pos, 8); /* big-endian machine */
+	else {
+		int i;
+		for (i = 0; i < 8; ++i) u.c[i] = buf[pos + 7 - i];
 	}
-	union {
-		int64_t l;
-		double d;
-	} u = { l };
 	*val = u.d;
 	return 8;
 }
@@ -60,7 +59,7 @@ static int decodeStr(lua_State *L, const char* buf, int pos, int size, int ridx,
 		if ((pos + len) > size) return luaL_error(L, "insufficient data of length %d at position %d", len, pos);
 		lua_pushlstring(L, buf + pos, len);
 		pos += len;
-		if (loose || len) { // empty string is never sent by reference
+		if (loose || len) { /* empty string is never sent by reference */
 			lua_pushvalue(L, -1);
 			luaL_ref(L, ridx);
 		}
@@ -69,8 +68,8 @@ static int decodeStr(lua_State *L, const char* buf, int pos, int size, int ridx,
 }
 
 static int decodeVal(lua_State* L, const char* buf, int pos, int size, int sidx, int oidx, int tidx) {
-	if (pos >= size) return luaL_error(L, "insufficient type data at position %d", pos);
 	int old = pos;
+	if (pos >= size) return luaL_error(L, "insufficient type data at position %d", pos);
 	lua_checkstack(L, 5);
 	switch (buf[pos++]) {
 		case AMF3_UNDEFINED:
@@ -106,9 +105,9 @@ static int decodeVal(lua_State* L, const char* buf, int pos, int size, int sidx,
 			break;
 		case AMF3_DATE: {
 			int tmp;
+			double d;
 			pos += decodeRef(L, buf, pos, size, oidx, &tmp);
 			if (tmp < 0) break;
-			double d;
 			pos += decodeDouble(L, buf, pos, size, &d);
 			lua_pushnumber(L, d);
 			lua_pushvalue(L, -1);
@@ -116,13 +115,13 @@ static int decodeVal(lua_State* L, const char* buf, int pos, int size, int sidx,
 			break;
 		}
 		case AMF3_ARRAY: {
-			int len;
+			int len, n;
 			pos += decodeRef(L, buf, pos, size, oidx, &len);
 			if (len < 0) break;
 			lua_newtable(L);
 			lua_pushvalue(L, -1);
 			luaL_ref(L, oidx);
-			for ( ;; ) { // associative portion
+			for ( ;; ) { /* associative portion */
 				pos += decodeStr(L, buf, pos, size, sidx, 0);
 				if (!lua_objlen(L, -1)) {
 					lua_pop(L, 1);
@@ -131,52 +130,54 @@ static int decodeVal(lua_State* L, const char* buf, int pos, int size, int sidx,
 				pos += decodeVal(L, buf, pos, size, sidx, oidx, tidx);
 				lua_rawset(L, -3);
 			}
-			for (int n = 1; n <= len; ++n) { // dense portion
+			for (n = 1; n <= len; ++n) { /* dense portion */
 				pos += decodeVal(L, buf, pos, size, sidx, oidx, tidx);
 				lua_rawseti(L, -2, n);
 			}
 			break;
 		}
 		case AMF3_OBJECT: {
-			int pfx;
+			int pfx, def;
 			pos += decodeRef(L, buf, pos, size, oidx, &pfx);
 			if (pfx < 0) break;
 			lua_newtable(L);
 			lua_pushvalue(L, -1);
 			luaL_ref(L, oidx);
-			int def = pfx & 1;
+			def = pfx & 1;
 			pfx >>= 1;
-			if (def) { // new class definition
+			if (def) { /* new class definition */
+				int n, i;
 				lua_newtable(L);
 				lua_pushvalue(L, -1);
 				luaL_ref(L, tidx);
 				lua_pushinteger(L, pfx);
 				lua_rawseti(L, -2, 1);
-				pos += decodeStr(L, buf, pos, size, sidx, 0); // class name
+				pos += decodeStr(L, buf, pos, size, sidx, 0); /* class name */
 				lua_rawseti(L, -2, 2);
-				int n = pfx >> 2;
-				for (int i = 0; i < n; ++i) { // static member names
+				n = pfx >> 2;
+				for (i = 0; i < n; ++i) { /* static member names */
 					pos += decodeStr(L, buf, pos, size, sidx, 0);
 					lua_rawseti(L, -2, i + 3);
 				}
-			} else { // existing class definition
+			} else { /* existing class definition */
 				lua_rawgeti(L, tidx, pfx + 1);
 				if (lua_isnil(L, -1)) return luaL_error(L, "missing class definition #%d at position %d", pfx, pos);
 				lua_rawgeti(L, -1, 1);
 				pfx = lua_tointeger(L, -1);
 				lua_pop(L, 1);
 			}
-			if (pfx & 1) { // externalizable
+			if (pfx & 1) { /* externalizable */
 				pos += decodeVal(L, buf, pos, size, sidx, oidx, tidx);
 				lua_setfield(L, -3, "_data");
 			} else {
 				int n = pfx >> 2;
-				for (int i = 0; i < n; ++i) {
+				int i;
+				for (i = 0; i < n; ++i) {
 					lua_rawgeti(L, -1, i + 3);
 					pos += decodeVal(L, buf, pos, size, sidx, oidx, tidx);
 					lua_rawset(L, -4);
 				}
-				if (pfx & 2) { // dynamic
+				if (pfx & 2) { /* dynamic */
 					for ( ;; ) {
 						pos += decodeStr(L, buf, pos, size, sidx, 0);
 						if (!lua_objlen(L, -1)) {
