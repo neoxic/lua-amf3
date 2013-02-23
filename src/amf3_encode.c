@@ -7,7 +7,6 @@
 #include <string.h>
 #include <lauxlib.h>
 #include "amf3.h"
-#include "amf3_encode.h"
 
 
 typedef struct Chunk Chunk;

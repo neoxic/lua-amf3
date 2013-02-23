@@ -40,7 +40,7 @@ values = {
 	function () return (math_random() - 0.5) * 1234567890 end, -- double
 	function () -- string
 		local t = {}
-		for i = 1, math_random(0, 10) do
+		for i = 1, math_random(0, 30) do
 			t[i] = math_random(0, 255)
 		end
 		return string_char(unpack(t))
@@ -132,7 +132,7 @@ local stats = {}
 
 stdout 'Testing'
 for i = 1, 50 do
-	for j = 1, 100 do
+	for j = 1, 10 do
 		local obj = spawn()
 		local str = amf3_encode(obj)
 		local size = #str
@@ -145,6 +145,11 @@ for i = 1, 50 do
 			max = size
 		end
 		stats[size] = (stats[size] or 0)+ 1
+
+		-- additional robustness test
+		for pos = 0, size - 1 do
+			pcall(amf3_decode, str, pos)
+		end
 	end
 	stdout '.'
 end

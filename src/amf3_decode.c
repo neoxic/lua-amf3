@@ -6,7 +6,6 @@
 #include <string.h>
 #include <lauxlib.h>
 #include "amf3.h"
-#include "amf3_decode.h"
 
 
 static int decodeValue(lua_State* L, const char* buf, int pos, int size, int sidx, int oidx, int tidx);

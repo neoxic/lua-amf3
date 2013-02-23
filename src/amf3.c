@@ -5,8 +5,6 @@
 
 #include <lauxlib.h>
 #include "amf3.h"
-#include "amf3_encode.h"
-#include "amf3_decode.h"
 
 
 static const struct luaL_Reg amf3_lib[] = {

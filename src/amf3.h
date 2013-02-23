@@ -6,6 +6,8 @@
 #ifndef amf3_h
 #define amf3_h
 
+#include <lua.h>
+
 
 #define VERSION "1.0.1"
 
@@ -25,6 +27,10 @@
 
 #define AMF3_MAX_INT     268435455 /*  (2^28)-1 */
 #define AMF3_MIN_INT    -268435456 /* -(2^28)   */
+
+
+int amf3_encode(lua_State *L);
+int amf3_decode(lua_State *L);
 
 
 #endif
