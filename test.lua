@@ -22,18 +22,18 @@ local string_char = string.char
 local table_insert = table.insert
 
 
-local values, arrays
+local vals, objs, refs
 
 local function spawn(n)
 	n = n or 1
 	if n <= 3 and math_random() < 0.7 then
-		return arrays[math_random(#arrays)](n)
+		return objs[math_random(#objs)](n)
 	else
-		return values[math_random(#values)]()
+		return vals[math_random(#vals)]()
 	end
 end
 
-values = {
+vals = {
 	function () return nil end, -- nil
 	function () return math_random() < 0.5 end, -- boolean
 	function () return math_random(-268435456, 268435455) end, -- integer
@@ -47,9 +47,7 @@ values = {
 	end,
 }
 
-local refs = {}
-
-arrays = {
+objs = {
 	function (n) -- dense array
 		local t = {}
 		for i = 1, math_random(0, 10) do
@@ -64,7 +62,7 @@ arrays = {
 	function (n) -- associative array
 		local t = {}
 		for i = 1, math_random(0, 10) do
-			local k = values[5]()
+			local k = vals[5]()
 			local v = spawn(n + 1)
 			if #k > 0 and v ~= nil then
 				t[k] = v
@@ -73,11 +71,13 @@ arrays = {
 		table_insert(refs, t)
 		return t
 	end,
-	function () -- array reference
+	function () -- reference
 		local n = #refs
 		return n > 0 and refs[math_random(n)] or nil
 	end
 }
+
+refs = {}
 
 local function compare(v1, v2)
 	local r = {}
