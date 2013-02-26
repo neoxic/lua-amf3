@@ -13,12 +13,14 @@ OBJS = ${SRCS:.c=.o}
 CFLAGS  += -O2 -fPIC -ansi -pedantic -Wall -Wextra -Wshadow -Wformat -Wundef -Wwrite-strings -I${LUAINC}
 LDFLAGS += -l${LUALIB} -L${PREFIX}/lib
 
+CC ?= cc
+
 .PHONY: all
 
 all: ${LIB}
 
 ${LIB}: ${OBJS}
-	cc -shared -o $@ ${LDFLAGS} ${OBJS}
+	${CC} -shared -o $@ ${LDFLAGS} ${OBJS}
 
 clean:
 	rm -f ${LIB} ${OBJS}
