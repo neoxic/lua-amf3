@@ -22,18 +22,7 @@ local string_char = string.char
 local table_insert = table.insert
 
 
-local vals, objs, refs
-
-local function spawn(n)
-	n = n or 1
-	if n <= 3 and math_random() < 0.7 then
-		return objs[math_random(#objs)](n)
-	else
-		return vals[math_random(#vals)]()
-	end
-end
-
-vals = {
+local vals = {
 	function () return nil end, -- nil
 	function () return math_random() < 0.5 end, -- boolean
 	function () return math_random(-268435456, 268435455) end, -- integer
@@ -41,17 +30,21 @@ vals = {
 	function () -- string
 		local t = {}
 		for i = 1, math_random(0, 30) do
-			t[i] = math_random(0, 255)
+			t[i] = math_random(0, 10)
 		end
 		return string_char(unpack(t))
 	end,
 }
-
-objs = {
-	function (n) -- dense array
+local refs, any
+local objs = {
+	function () -- reference
+		local n = #refs
+		return n > 0 and refs[math_random(n)] or nil
+	end,
+	function (d) -- dense array
 		local t = {}
 		for i = 1, math_random(0, 10) do
-			local v = spawn(n + 1)
+			local v = any(d + 1)
 			if v ~= nil then
 				table_insert(t, v)
 			end
@@ -59,11 +52,11 @@ objs = {
 		table_insert(refs, t)
 		return t
 	end,
-	function (n) -- associative array
+	function (d) -- associative array
 		local t = {}
 		for i = 1, math_random(0, 10) do
-			local k = vals[5]()
-			local v = spawn(n + 1)
+			local k = vals[5]() -- random string key
+			local v = any(d + 1)
 			if #k > 0 and v ~= nil then
 				t[k] = v
 			end
@@ -71,13 +64,18 @@ objs = {
 		table_insert(refs, t)
 		return t
 	end,
-	function () -- reference
-		local n = #refs
-		return n > 0 and refs[math_random(n)] or nil
-	end
 }
+any = function (d)
+	if d < 4 and math_random() < 0.7 then
+		return objs[math_random(#objs)](d)
+	end
+	return vals[math_random(#vals)]()
+end
 
-refs = {}
+local function spawn()
+	refs = {}
+	return any(0)
+end
 
 local function compare(v1, v2)
 	local r = {}
@@ -116,14 +114,15 @@ local function printf(fmt, ...)
 	print(fmt:format(...))
 end
 
-local function check(cond, msg)
+local function check(cond)
 	if not cond then
-		error('check failed!' .. (msg and ' --> ' .. msg or ''), 2)
+		stdout '\n'
+		error('check failed!', 2)
 	end
 end
 
 
--- Test
+-- Stress Test
 
 local total = 0
 local cnt = 0
@@ -132,11 +131,12 @@ local stats = {}
 
 stdout 'Testing'
 for i = 1, 50 do
-	for j = 1, 10 do
+	for j = 1, 20 do
 		local obj = spawn()
 		local str = amf3_encode(obj)
 		local size = #str
 		local _obj, _size = amf3_decode(str)
+		local _str = amf3_encode(_obj)
 		check(size == _size)
 		check(compare(obj, _obj))
 		total = total + size
@@ -144,7 +144,7 @@ for i = 1, 50 do
 		if max < size then
 			max = size
 		end
-		stats[size] = (stats[size] or 0)+ 1
+		stats[size] = (stats[size] or 0) + 1
 
 		-- additional robustness test
 		for pos = 0, size - 1 do
@@ -163,9 +163,9 @@ for i = 1, 10 do
 	local a = (i - 1) / 10 * max
 	local b = i / 10 * max
 	local c = 0
-	for size, cnt in pairs(stats) do
-		if size > a and size <= b then
-			c = c + cnt
+	for k, v in pairs(stats) do
+		if k > a and k <= b then
+			c = c + v
 		end
 	end
 	printf('%2d...%d \t%5.1f', (i - 1) * 10, i * 10, c / cnt * 100)
