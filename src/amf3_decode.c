@@ -215,7 +215,7 @@ static int decodeValue(lua_State* L, const char* buf, int pos, int size, int sid
 			pos += decodeObject(L, buf, pos, size, sidx, oidx, tidx);
 			break;
 		default:
-			return luaL_error(L, "invalid type value %d at position %d", buf[pos - 1], pos - 1);
+			return luaL_error(L, "unsupported value type %d at position %d", buf[pos - 1], pos - 1);
 	}
 	return pos - old;
 }
