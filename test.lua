@@ -122,7 +122,7 @@ local function check(cond)
 end
 
 
--- Stress Test
+-- Stress test
 
 local total = 0
 local cnt = 0
@@ -146,8 +146,8 @@ for i = 1, 50 do
 		end
 		stats[size] = (stats[size] or 0) + 1
 
-		-- additional robustness test
-		for pos = 0, size - 1 do
+		-- Additional decoder's robustness test
+		for pos = 1, size - 1 do
 			pcall(amf3_decode, str, pos)
 		end
 	end
