@@ -8,7 +8,7 @@
 #include "amf3.h"
 
 
-static int decodeValue(lua_State* L, const char* buf, int pos, int size, int sidx, int oidx, int tidx);
+static int decodeValue(lua_State *L, const char *buf, int pos, int size, int sidx, int oidx, int tidx);
 
 static int decodeU29(lua_State *L, const char *buf, int pos, int size, int *val) {
 	int ofs = 0, res = 0, tmp;
@@ -56,7 +56,7 @@ static int decodeRef(lua_State *L, const char *buf, int pos, int size, int ridx,
 	return ofs;
 }
 
-static int decodeStr(lua_State *L, const char* buf, int pos, int size, int ridx, int loose) {
+static int decodeStr(lua_State *L, const char *buf, int pos, int size, int ridx, int loose) {
 	int old = pos, len;
 	pos += decodeRef(L, buf, pos, size, ridx, &len);
 	if (len >= 0) {
@@ -72,7 +72,7 @@ static int decodeStr(lua_State *L, const char* buf, int pos, int size, int ridx,
 	return pos - old;
 }
 
-static int decodeDate(lua_State* L, const char* buf, int pos, int size, int ridx) {
+static int decodeDate(lua_State *L, const char *buf, int pos, int size, int ridx) {
 	int old = pos, pfx;
 	pos += decodeRef(L, buf, pos, size, ridx, &pfx);
 	if (pfx >= 0) {
@@ -85,7 +85,7 @@ static int decodeDate(lua_State* L, const char* buf, int pos, int size, int ridx
 	return pos - old;
 }
 
-static int decodeArray(lua_State* L, const char* buf, int pos, int size, int sidx, int oidx, int tidx) {
+static int decodeArray(lua_State *L, const char *buf, int pos, int size, int sidx, int oidx, int tidx) {
 	int old = pos, len;
 	pos += decodeRef(L, buf, pos, size, oidx, &len);
 	if (len >= 0) {
@@ -110,7 +110,7 @@ static int decodeArray(lua_State* L, const char* buf, int pos, int size, int sid
 	return pos - old;
 }
 
-static int decodeObject(lua_State* L, const char* buf, int pos, int size, int sidx, int oidx, int tidx) {
+static int decodeObject(lua_State *L, const char *buf, int pos, int size, int sidx, int oidx, int tidx) {
 	int old = pos, pfx;
 	pos += decodeRef(L, buf, pos, size, oidx, &pfx);
 	if (pfx >= 0) {
@@ -169,7 +169,7 @@ static int decodeObject(lua_State* L, const char* buf, int pos, int size, int si
 	return pos - old;
 }
 
-static int decodeValue(lua_State* L, const char* buf, int pos, int size, int sidx, int oidx, int tidx) {
+static int decodeValue(lua_State *L, const char *buf, int pos, int size, int sidx, int oidx, int tidx) {
 	int old = pos;
 	if (pos >= size) return luaL_error(L, "insufficient type data at position %d", pos);
 	lua_checkstack(L, 5);
@@ -222,7 +222,7 @@ static int decodeValue(lua_State* L, const char* buf, int pos, int size, int sid
 
 int amf3_decode(lua_State *L) {
 	size_t size;
-	const char* buf = luaL_checklstring(L, 1, &size);
+	const char *buf = luaL_checklstring(L, 1, &size);
 	int pos = luaL_optint(L, 2, 0);
 	luaL_argcheck(L, pos >= 0, 2, "position may not be negative");
 	lua_settop(L, 1);
