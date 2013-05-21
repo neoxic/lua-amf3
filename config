@@ -14,12 +14,8 @@ endif
 # Linux
 ifeq (${OS}, Linux)
 	PREFIX ?= /usr
-	LUAINC ?= ${PREFIX}/include/lua5.1
-	LUALIB ?= lua5.1
-
-	# Gentoo, OpenSUSE
-	ifneq ($(wildcard /etc/gentoo-release /etc/SuSE-release), )
-		LUAINC ?= ${PREFIX}/include
-		LUALIB ?= lua
+	ifeq ($(wildcard /etc/gentoo-release /etc/SuSE-release), ) # not for Gentoo and OpenSUSE
+		LUAINC ?= ${PREFIX}/include/lua5.1
+		LUALIB ?= lua5.1
 	endif
 endif
