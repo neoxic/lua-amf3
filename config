@@ -3,27 +3,23 @@ OS := $(shell uname)
 # OSX
 ifeq (${OS}, Darwin)
 	PREFIX ?= /opt/local
-	LUALIB ?= lua
 endif
 
 # FreeBSD
 ifeq (${OS}, FreeBSD)
 	LUAINC ?= ${PREFIX}/include/lua51
-	LUABIN ?= lua-5.1
+	LUALIB ?= lua-5.1
 endif
 
 # Linux
 ifeq (${OS}, Linux)
 	PREFIX ?= /usr
+	LUAINC ?= ${PREFIX}/include/lua5.1
+	LUALIB ?= lua5.1
 
-	# Arch, Gentoo, OpenSUSE
-	ifneq ($(wildcard /etc/arch-release /etc/gentoo-release /etc/SuSE-release), )
+	# Gentoo, OpenSUSE
+	ifneq ($(wildcard /etc/gentoo-release /etc/SuSE-release), )
+		LUAINC ?= ${PREFIX}/include
 		LUALIB ?= lua
-	endif
-
-	# Debian
-	ifneq ($(wildcard /etc/debian_version), )
-		LUAINC ?= ${PREFIX}/include/lua5.1
-		LUALIB ?= lua5.1
 	endif
 endif
