@@ -37,7 +37,7 @@ static int decodeDouble(lua_State *L, const char *buf, int pos, int size, double
 	buf += pos;
 	t.i = 1;
 	if (!t.c) memcpy(u.c, buf, 8);
-	else { /* little-endian machine */
+	else { /* Little-endian machine */
 		int i;
 		for (i = 0; i < 8; ++i) u.c[i] = buf[7 - i];
 	}
@@ -56,7 +56,7 @@ static int decodeRef(lua_State *L, const char *buf, int pos, int size, int ridx,
 	return ofs;
 }
 
-static int decodeStr(lua_State *L, const char *buf, int pos, int size, int ridx, int loose) {
+static int decodeString(lua_State *L, const char *buf, int pos, int size, int ridx, int loose) {
 	int old = pos, len;
 	pos += decodeRef(L, buf, pos, size, ridx, &len);
 	if (len >= 0) {
@@ -64,7 +64,7 @@ static int decodeStr(lua_State *L, const char *buf, int pos, int size, int ridx,
 		buf += pos;
 		pos += len;
 		lua_pushlstring(L, buf, len);
-		if (loose || len) { /* empty string is never sent by reference */
+		if (loose || len) { /* Empty string is never sent by reference */
 			lua_pushvalue(L, -1);
 			luaL_ref(L, ridx);
 		}
@@ -93,8 +93,8 @@ static int decodeArray(lua_State *L, const char *buf, int pos, int size, int sid
 		lua_newtable(L);
 		lua_pushvalue(L, -1);
 		luaL_ref(L, oidx);
-		for ( ;; ) { /* associative portion */
-			pos += decodeStr(L, buf, pos, size, sidx, 0);
+		for ( ;; ) { /* Associative portion */
+			pos += decodeString(L, buf, pos, size, sidx, 0);
 			if (!lua_objlen(L, -1)) {
 				lua_pop(L, 1);
 				break;
@@ -102,7 +102,7 @@ static int decodeArray(lua_State *L, const char *buf, int pos, int size, int sid
 			pos += decodeValue(L, buf, pos, size, sidx, oidx, tidx);
 			lua_rawset(L, -3);
 		}
-		for (n = 1; n <= len; ++n) { /* dense portion */
+		for (n = 1; n <= len; ++n) { /* Dense portion */
 			pos += decodeValue(L, buf, pos, size, sidx, oidx, tidx);
 			lua_rawseti(L, -2, n);
 		}
@@ -119,27 +119,27 @@ static int decodeObject(lua_State *L, const char *buf, int pos, int size, int si
 		lua_pushvalue(L, -1);
 		luaL_ref(L, oidx);
 		pfx >>= 1;
-		if (def) { /* new class definition */
+		if (def) { /* New class definition */
 			int i, n = pfx >> 2;
 			lua_newtable(L);
 			lua_pushvalue(L, -1);
 			luaL_ref(L, tidx);
 			lua_pushinteger(L, pfx);
 			lua_rawseti(L, -2, 1);
-			pos += decodeStr(L, buf, pos, size, sidx, 0); /* class name */
+			pos += decodeString(L, buf, pos, size, sidx, 0); /* Class name */
 			lua_rawseti(L, -2, 2);
-			for (i = 0; i < n; ++i) { /* static member names */
-				pos += decodeStr(L, buf, pos, size, sidx, 0);
+			for (i = 0; i < n; ++i) { /* Static member names */
+				pos += decodeString(L, buf, pos, size, sidx, 0);
 				lua_rawseti(L, -2, i + 3);
 			}
-		} else { /* existing class definition */
+		} else { /* Existing class definition */
 			lua_rawgeti(L, tidx, pfx + 1);
 			if (lua_isnil(L, -1)) return luaL_error(L, "missing class definition #%d at position %d", pfx, pos);
 			lua_rawgeti(L, -1, 1);
 			pfx = lua_tointeger(L, -1);
 			lua_pop(L, 1);
 		}
-		if (pfx & 1) { /* externalizable */
+		if (pfx & 1) { /* Externalizable */
 			pos += decodeValue(L, buf, pos, size, sidx, oidx, tidx);
 			lua_setfield(L, -3, "_data");
 		} else {
@@ -149,9 +149,9 @@ static int decodeObject(lua_State *L, const char *buf, int pos, int size, int si
 				pos += decodeValue(L, buf, pos, size, sidx, oidx, tidx);
 				lua_rawset(L, -4);
 			}
-			if (pfx & 2) { /* dynamic */
+			if (pfx & 2) { /* Dynamic */
 				for ( ;; ) {
-					pos += decodeStr(L, buf, pos, size, sidx, 0);
+					pos += decodeString(L, buf, pos, size, sidx, 0);
 					if (!lua_objlen(L, -1)) {
 						lua_pop(L, 1);
 						break;
@@ -198,12 +198,12 @@ static int decodeValue(lua_State *L, const char *buf, int pos, int size, int sid
 			break;
 		}
 		case AMF3_STRING:
-			pos += decodeStr(L, buf, pos, size, sidx, 0);
+			pos += decodeString(L, buf, pos, size, sidx, 0);
 			break;
 		case AMF3_XML:
 		case AMF3_XMLDOC:
 		case AMF3_BYTEARRAY:
-			pos += decodeStr(L, buf, pos, size, oidx, 1);
+			pos += decodeString(L, buf, pos, size, oidx, 1);
 			break;
 		case AMF3_DATE:
 			pos += decodeDate(L, buf, pos, size, oidx);
