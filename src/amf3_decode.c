@@ -11,7 +11,8 @@
 static int decodeValue(lua_State *L, const char *buf, int pos, int size, int sidx, int oidx, int tidx);
 
 static int decodeU29(lua_State *L, const char *buf, int pos, int size, int *val) {
-	int ofs = 0, res = 0, tmp;
+	int ofs = 0, res = 0;
+	unsigned char tmp;
 	*val = 0;
 	buf += pos;
 	do {
@@ -19,7 +20,7 @@ static int decodeU29(lua_State *L, const char *buf, int pos, int size, int *val)
 		tmp = buf[ofs];
 		if (ofs == 3) {
 			res <<= 8;
-			res |= tmp & 0xff;
+			res |= tmp;
 		} else {
 			res <<= 7;
 			res |= tmp & 0x7f;

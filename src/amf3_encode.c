@@ -24,7 +24,7 @@ struct Strap {
 };
 
 
-static void encodeValue(Strap *st, lua_State *L, int idx, int sidx, int oidx, int *tfl);
+static void encodeValue(Strap *st, lua_State *L, int idx, int sidx, int oidx, int *otr);
 
 static Chunk *newChunk() {
 	Chunk *ch = malloc(sizeof *ch);
@@ -162,7 +162,7 @@ static void encodeString(Strap *st, lua_State *L, int idx, int ridx) {
 	appendStrap(st, str, len);
 }
 
-static void encodeArray(Strap *st, lua_State *L, int idx, int len, int sidx, int oidx, int *tfl) {
+static void encodeArray(Strap *st, lua_State *L, int idx, int len, int sidx, int oidx, int *otr) {
 	int n;
 	if (encodeRef(st, L, idx, oidx)) return;
 	if (len > AMF3_MAX_INT) len = AMF3_MAX_INT;
@@ -170,16 +170,16 @@ static void encodeArray(Strap *st, lua_State *L, int idx, int len, int sidx, int
 	encodeChar(st, 0x01);
 	for (n = 1; n <= len; ++n) {
 		lua_rawgeti(L, idx, n);
-		encodeValue(st, L, -1, sidx, oidx, tfl);
+		encodeValue(st, L, -1, sidx, oidx, otr);
 		lua_pop(L, 1);
 	}
 }
 
-static void encodeObject(Strap *st, lua_State *L, int idx, int sidx, int oidx, int *tfl) {
+static void encodeObject(Strap *st, lua_State *L, int idx, int sidx, int oidx, int *otr) {
 	if (encodeRef(st, L, idx, oidx)) return;
-	if (*tfl) encodeChar(st, 0x01); /* Traits have been encoded earlier */
+	if (*otr) encodeChar(st, 0x01); /* Traits have been encoded earlier */
 	else {
-		*tfl = 1;
+		*otr = 1;
 		encodeChar(st, 0x0b);
 		encodeChar(st, 0x01);
 	}
@@ -198,12 +198,12 @@ static void encodeObject(Strap *st, lua_State *L, int idx, int sidx, int oidx, i
 			default:
 				continue;
 		}
-		encodeValue(st, L, -1, sidx, oidx, tfl);
+		encodeValue(st, L, -1, sidx, oidx, otr);
 	}
 	encodeChar(st, 0x01);
 }
 
-static void encodeValue(Strap *st, lua_State *L, int idx, int sidx, int oidx, int *tfl) {
+static void encodeValue(Strap *st, lua_State *L, int idx, int sidx, int oidx, int *otr) {
 	if (idx < 0) idx = lua_gettop(L) + idx + 1;
 	lua_checkstack(L, 5);
 	switch (lua_type(L, idx)) {
@@ -234,10 +234,10 @@ static void encodeValue(Strap *st, lua_State *L, int idx, int sidx, int oidx, in
 			int len = getTableLen(L, idx);
 			if (len >= 0) {
 				encodeChar(st, AMF3_ARRAY);
-				encodeArray(st, L, idx, len, sidx, oidx, tfl);
+				encodeArray(st, L, idx, len, sidx, oidx, otr);
 			} else {
 				encodeChar(st, AMF3_OBJECT);
-				encodeObject(st, L, idx, sidx, oidx, tfl);
+				encodeObject(st, L, idx, sidx, oidx, otr);
 			}
 			break;
 		}
@@ -246,13 +246,13 @@ static void encodeValue(Strap *st, lua_State *L, int idx, int sidx, int oidx, in
 
 int amf3_encode(lua_State *L) {
 	Strap st;
-	int tfl = 0;
+	int otr = 0;
 	luaL_checkany(L, 1);
 	lua_settop(L, 1);
 	lua_newtable(L);
 	lua_newtable(L);
 	initStrap(&st);
-	encodeValue(&st, L, 1, 2, 3, &tfl);
+	encodeValue(&st, L, 1, 2, 3, &otr);
 	flushStrap(&st, L);
 	return 1;
 }
