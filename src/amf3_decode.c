@@ -11,23 +11,23 @@
 static int decodeValue(lua_State *L, const char *buf, int pos, int size, int sidx, int oidx, int tidx);
 
 static int decodeU29(lua_State *L, const char *buf, int pos, int size, int *val) {
-	int ofs = 0, res = 0;
-	unsigned char tmp;
+	int res = 0, n = 0;
+	unsigned char b;
 	*val = 0;
 	buf += pos;
 	do {
-		if ((pos + ofs) >= size) return luaL_error(L, "insufficient integer data at position %d", pos);
-		tmp = buf[ofs];
-		if (ofs == 3) {
+		if ((pos + n) >= size) return luaL_error(L, "insufficient integer data at position %d", pos);
+		b = buf[n++];
+		if (n == 4) {
 			res <<= 8;
-			res |= tmp;
-		} else {
-			res <<= 7;
-			res |= tmp & 0x7f;
+			res |= b;
+			break;
 		}
-	} while ((++ofs < 4) && (tmp & 0x80));
+		res <<= 7;
+		res |= b & 0x7f;
+	} while (b & 0x80);
 	*val = res;
-	return ofs;
+	return n;
 }
 
 static int decodeDouble(lua_State *L, const char *buf, int pos, int size, double *val) {
@@ -47,14 +47,14 @@ static int decodeDouble(lua_State *L, const char *buf, int pos, int size, double
 }
 
 static int decodeRef(lua_State *L, const char *buf, int pos, int size, int ridx, int *val) {
-	int ofs, pfx;
-	ofs = decodeU29(L, buf, pos, size, &pfx);
+	int old = pos, pfx;
+	pos += decodeU29(L, buf, pos, size, &pfx);
 	if (pfx & 1) *val = pfx >> 1;
 	else {
 		*val = -1;
 		lua_rawgeti(L, ridx, (pfx >> 1) + 1);
 	}
-	return ofs;
+	return pos - old;
 }
 
 static int decodeString(lua_State *L, const char *buf, int pos, int size, int ridx, int loose) {
