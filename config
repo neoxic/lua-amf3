@@ -1,10 +1,5 @@
 OS := $(shell uname)
 
-# OSX
-ifeq (${OS}, Darwin)
-	PREFIX ?= /opt/local
-endif
-
 # FreeBSD
 ifeq (${OS}, FreeBSD)
 	LUAINC ?= ${PREFIX}/include/lua51
