@@ -47,17 +47,20 @@ static int decodeDouble(lua_State *L, const char *buf, int pos, int size, double
 }
 
 static int decodeRef(lua_State *L, const char *buf, int pos, int size, int ridx, int *val) {
-	int old = pos, pfx;
-	pos += decodeU29(L, buf, pos, size, &pfx);
-	if (pfx & 1) *val = pfx >> 1;
+	int pfx, ofs, def;
+	ofs = decodeU29(L, buf, pos, size, &pfx);
+	def = pfx & 1;
+	pfx >>= 1;
+	if (def) *val = pfx;
 	else {
 		*val = -1;
-		lua_rawgeti(L, ridx, (pfx >> 1) + 1);
+		lua_rawgeti(L, ridx, pfx + 1);
+		if (lua_isnil(L, -1)) return luaL_error(L, "missing reference #%d at position %d", pfx, pos);
 	}
-	return pos - old;
+	return ofs;
 }
 
-static int decodeString(lua_State *L, const char *buf, int pos, int size, int ridx, int loose) {
+static int decodeString(lua_State *L, const char *buf, int pos, int size, int ridx, int blob) {
 	int old = pos, len;
 	pos += decodeRef(L, buf, pos, size, ridx, &len);
 	if (len >= 0) {
@@ -65,7 +68,7 @@ static int decodeString(lua_State *L, const char *buf, int pos, int size, int ri
 		buf += pos;
 		pos += len;
 		lua_pushlstring(L, buf, len);
-		if (loose || len) { /* Empty string is never sent by reference */
+		if (blob || len) { /* Empty string is never sent by reference */
 			lua_pushvalue(L, -1);
 			luaL_ref(L, ridx);
 		}
