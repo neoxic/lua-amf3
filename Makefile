@@ -29,5 +29,5 @@ install: all
 	install -d ${LIBDIR}
 	install ${LIB} ${LIBDIR}
 
-test:
+test: all
 	${LUABIN} test.lua
