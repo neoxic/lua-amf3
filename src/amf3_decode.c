@@ -61,7 +61,7 @@ static int decodeRef(const char *buf, int pos, int size, lua_State *L, int ridx,
 	else {
 		*val = -1;
 		lua_rawgeti(L, ridx, pfx + 1);
-		if (lua_isnil(L, -1)) return luaL_error(L, "invalid reference %d at position %d", pfx, pos);
+		if (lua_isnil(L, -1)) return luaL_error(L, "invalid reference %d at position %d", pfx, old);
 	}
 	return pos - old;
 }
@@ -70,7 +70,7 @@ static int decodeString(const char *buf, int pos, int size, lua_State *L, int ri
 	int old = pos, len;
 	pos += decodeRef(buf, pos, size, L, ridx, &len);
 	if (len != -1) {
-		if ((pos + len) > size) return luaL_error(L, "insufficient data of length %d at position %d", len, pos);
+		if ((pos + len) > size) return luaL_error(L, "invalid length %d at position %d", len, old);
 		buf += pos;
 		pos += len;
 		lua_pushlstring(L, buf, len);
@@ -142,7 +142,7 @@ static int decodeObject(const char *buf, int pos, int size, lua_State *L, int si
 			}
 		} else { /* Existing class definition */
 			lua_rawgeti(L, tidx, pfx + 1);
-			if (lua_isnil(L, -1)) return luaL_error(L, "invalid class reference %d at position %d", pfx, pos);
+			if (lua_isnil(L, -1)) return luaL_error(L, "invalid class reference %d at position %d", pfx, old);
 			lua_rawgeti(L, -1, 1);
 			pfx = lua_tointeger(L, -1);
 			lua_pop(L, 1);
@@ -216,7 +216,7 @@ static int decodeValue(const char *buf, int pos, int size, lua_State *L, int sid
 			pos += decodeObject(buf, pos, size, L, sidx, oidx, tidx);
 			break;
 		default:
-			return luaL_error(L, "unsupported value of type %d at position %d", buf[pos - 1], pos);
+			return luaL_error(L, "unsupported value type %d at position %d", buf[old], old);
 	}
 	return pos - old;
 }
