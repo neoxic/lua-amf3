@@ -128,7 +128,7 @@ static int decodeObject(const char *buf, int pos, int size, lua_State *L, int si
 		luaL_ref(L, oidx);
 		pfx >>= 1;
 		if (def) { /* New class definition */
-			int i, n = pfx >> 2;
+			int i, n;
 			lua_newtable(L);
 			lua_pushvalue(L, -1);
 			luaL_ref(L, tidx);
@@ -136,7 +136,7 @@ static int decodeObject(const char *buf, int pos, int size, lua_State *L, int si
 			lua_rawseti(L, -2, 1);
 			pos += decodeString(buf, pos, size, L, sidx, 0); /* Class name */
 			lua_rawseti(L, -2, 2);
-			for (i = 0; i < n; ++i) { /* Static member names */
+			for (i = 0, n = pfx >> 2; i < n; ++i) { /* Static member names */
 				pos += decodeString(buf, pos, size, L, sidx, 0);
 				lua_rawseti(L, -2, i + 3);
 			}
@@ -151,8 +151,8 @@ static int decodeObject(const char *buf, int pos, int size, lua_State *L, int si
 			pos += decodeValue(buf, pos, size, L, sidx, oidx, tidx);
 			lua_setfield(L, -3, "_data");
 		} else {
-			int i, n = pfx >> 2;
-			for (i = 0; i < n; ++i) {
+			int i, n;
+			for (i = 0, n = pfx >> 2; i < n; ++i) {
 				lua_rawgeti(L, -1, i + 3);
 				pos += decodeValue(buf, pos, size, L, sidx, oidx, tidx);
 				lua_rawset(L, -4);
@@ -225,7 +225,7 @@ int amf3_decode(lua_State *L) {
 	size_t size;
 	const char *buf = luaL_checklstring(L, 1, &size);
 	int pos = luaL_optint(L, 2, 0);
-	luaL_argcheck(L, pos >= 0, 2, "position may not be negative");
+	luaL_argcheck(L, (pos >= 0) && (pos <= (int)size), 2, "invalid position");
 	lua_settop(L, 1);
 	lua_newtable(L);
 	lua_newtable(L);
