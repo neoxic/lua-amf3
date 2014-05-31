@@ -83,13 +83,11 @@ local function compare(v1, v2)
 		if type(v1) ~= 'table' or type(v2) ~= 'table' then
 			return v1 == v2
 		end
-		local t1 = r[v1]
-		local t2 = r[v2]
-		if t1 or t2 then
-			return t1 == v2 and t2 == v1
+		if r[v1] and r[v2] then
+			return true
 		end
-		r[v1] = v2
-		r[v2] = v1
+		r[v1] = true
+		r[v2] = true
 		for k, v in pairs(v1) do
 			if not compare(v, v2[k]) then
 				return false
@@ -127,16 +125,14 @@ end
 local total = 0
 local cnt = 0
 local max = 0
-local stats = {}
+local sizes = {}
 
-stdout 'Testing'
 for i = 1, 50 do
 	for j = 1, 20 do
 		local obj = spawn()
 		local str = amf3_encode(obj)
 		local size = #str
 		local _obj, _size = amf3_decode(str)
-		local _str = amf3_encode(_obj)
 		check(size == _size)
 		check(compare(obj, _obj))
 		total = total + size
@@ -144,7 +140,7 @@ for i = 1, 50 do
 		if max < size then
 			max = size
 		end
-		stats[size] = (stats[size] or 0) + 1
+		table_insert(sizes, size)
 
 		-- Additional decoder's robustness test
 		for pos = 1, size - 1 do
@@ -156,16 +152,16 @@ end
 stdout '\n'
 
 printf('Processed %d bytes in %d chunks', total, cnt)
-printf('Max chunk size %d bytes', max)
+printf('Max chunk size: %d bytes', max)
 print 'Size distribution:'
 print '% of max size\t% of chunks'
 for i = 1, 10 do
 	local a = (i - 1) / 10 * max
 	local b = i / 10 * max
 	local c = 0
-	for k, v in pairs(stats) do
-		if k > a and k <= b then
-			c = c + v
+	for _, size in ipairs(sizes) do
+		if size > a and size <= b then
+			c = c + 1
 		end
 	end
 	printf('%2d...%d \t%5.1f', (i - 1) * 10, i * 10, c / cnt * 100)
