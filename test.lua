@@ -175,8 +175,8 @@ local strs = {
 	string_char(
 		0x09, 0x11, 0x01, -- Array (length 8)
 			0x08, 0x01, 0x3f, 0xb9, 0x99, 0x99, 0x99, 0x99, 0x99, 0x9a, -- Date (0.1)
-			0x0b, 0x07, 0x41, 0x42, 0x43, -- XML ("ABC")
-			0x07, 0x07, 0x44, 0x45, 0x46, -- XMLDoc ("DEF")
+			0x0b, 0x07, 0x41, 0x42, 0x43, -- XML ('ABC')
+			0x07, 0x07, 0x44, 0x45, 0x46, -- XMLDoc ('DEF')
 			0x0c, 0x07, 0x11, 0x22, 0x33, -- ByteArray (11 22 33)
 			0x08, 0x02, -- Date (reference 1)
 			0x0b, 0x04, -- XML (reference 2)
@@ -188,7 +188,7 @@ local strs = {
 		0x09, 0x07, -- Array (length 3)
 			0x03, 0x41, 0x04, 0x01, 0x03, 0x42, 0x04, 0x02, -- Associative part: A:1, B:2
 			0x01, -- End of associative part
-			0x06, 0x01, 0x03, 0x02 -- Dense part: ["", true, false]
+			0x06, 0x01, 0x03, 0x02 -- Dense part: ['', true, false]
 	),
 	-- Object
 	string_char(
@@ -210,7 +210,7 @@ local strs = {
 
 local ba = string_char(0x11, 0x22, 0x33)
 local objs = {
-	{ 0.1, "ABC", "DEF", ba, 0.1, "ABC", "DEF", ba },
+	{ 0.1, 'ABC', 'DEF', ba, 0.1, 'ABC', 'DEF', ba },
 	{ A = 1, B = 2, [1] = '', [2] = true, [3] = false },
 	{
 		{ A = 1, B = 2, C = 3, D = 4, E = 5, _class = 'ABC' },
@@ -227,3 +227,5 @@ for i = 1, #strs do
 	check(size == _size)
 	check(compare(obj, _obj))
 end
+
+print 'Test completed!'
