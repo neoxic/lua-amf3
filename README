@@ -11,15 +11,15 @@ amf3.encode(value)
 
 - Encodes 'value' into an AMF3 representation and returns it as a string.
 - A table with plain numeric keys 1..n without gaps is encoded as a sequence
-  using the AMF3 Array type. Otherwise, the keys are converted into strings
-  and the table is encoded as an anonymous object using the AMF3 Object type.
+  using the AMF3 Array type. Otherwise, the table is encoded as an anonymous
+  object using the AMF3 Object type.
 
 amf3.decode(data [, position])
 
 - Decodes an object from 'data' and returns it as the first value.
-- The second argument specifies initial data position (>= 0) in the string.
+- The second argument specifies an initial data position (>= 0) in the string.
 - The number of bytes read from the string is returned as the second value.
-- The AMF3 Object type is converted into a table with the additional '_class'
+- The AMF3 Object type is decoded as a table with the additional '_class'
   (class name) and '_data' (externalizable object's data) fields set when
   applicable.
 
