@@ -76,16 +76,19 @@ static void appendChar(Strap *st, char c) {
 	appendStrap(st, &c, 1);
 }
 
-static int getTableLen(lua_State *L, int idx) {
-	int len = 0;
+static int getTableType(lua_State *L, int idx, int *len) {
+	int type, n = 0, res = LUA_TNUMBER;
 	for (lua_pushnil(L); lua_next(L, idx); lua_pop(L, 1)) {
-		++len;
-		if ((lua_type(L, -2) != LUA_TNUMBER) || (lua_tointeger(L, -2) != len)) {
-			lua_pop(L, 2);
-			return -1;
+		type = lua_type(L, -2); /* Key type */
+		if (!n++) res = type;
+		if (type == res) {
+			if ((type == LUA_TNUMBER) && (lua_tointeger(L, -2) == n)) continue;
+			if ((type == LUA_TSTRING) && lua_objlen(L, -2)) continue; /* Empty key can't be represented in AMF3 */
 		}
+		res = LUA_TNONE;
 	}
-	return len;
+	*len = n;
+	return res;
 }
 
 static void encodeValue(Strap *st, lua_State *L, int idx, int sidx, int oidx, int *tf);
@@ -162,16 +165,13 @@ static void encodeString(Strap *st, lua_State *L, int idx, int ridx) {
 	appendStrap(st, str, len);
 }
 
-static void encodeArray(Strap *st, lua_State *L, int idx, int len, int sidx, int oidx, int *tf) {
-	int n;
+static void encodeArray(Strap *st, lua_State *L, int idx, int sidx, int oidx, int *tf, int len) {
 	if (encodeRef(st, L, idx, oidx)) return;
 	if (len > AMF3_MAX_INT) len = AMF3_MAX_INT;
 	encodeU29(st, (len << 1) | 1);
-	appendChar(st, 0x01);
-	for (n = 1; n <= len; ++n) {
-		lua_rawgeti(L, idx, n);
+	appendChar(st, 0x01); /* Empty associative part */
+	for (lua_pushnil(L); lua_next(L, idx); lua_pop(L, 1)) {
 		encodeValue(st, L, -1, sidx, oidx, tf);
-		lua_pop(L, 1);
 	}
 }
 
@@ -180,27 +180,25 @@ static void encodeObject(Strap *st, lua_State *L, int idx, int sidx, int oidx, i
 	if (*tf) appendChar(st, 0x01); /* Traits have been encoded earlier */
 	else {
 		*tf = 1;
-		appendChar(st, 0x0b);
-		appendChar(st, 0x01);
+		appendChar(st, 0x0b); /* Traits: no static members, externalizable=0, dynamic=1 */
+		appendChar(st, 0x01); /* Empty class name */
 	}
 	for (lua_pushnil(L); lua_next(L, idx); lua_pop(L, 1)) {
-		switch (lua_type(L, -2)) { /* Key type */
-			case LUA_TNUMBER:
-				lua_pushvalue(L, -2);
-				lua_tostring(L, -1); /* Convert numeric key into string */
-				encodeString(st, L, -1, sidx);
-				lua_pop(L, 1);
-				break;
-			case LUA_TSTRING:
-				if (!lua_objlen(L, -2)) continue; /* Empty key can't be represented in AMF3 */
-				encodeString(st, L, -2, sidx);
-				break;
-			default:
-				continue;
-		}
+		encodeString(st, L, -2, sidx);
 		encodeValue(st, L, -1, sidx, oidx, tf);
 	}
 	appendChar(st, 0x01);
+}
+
+static void encodeDictionary(Strap *st, lua_State *L, int idx, int sidx, int oidx, int *tf, int len) {
+	if (encodeRef(st, L, idx, oidx)) return;
+	if (len > AMF3_MAX_INT) len = AMF3_MAX_INT;
+	encodeU29(st, (len << 1) | 1);
+	appendChar(st, 0x00); /* weak-keys=0 */
+	for (lua_pushnil(L); lua_next(L, idx); lua_pop(L, 1)) {
+		encodeValue(st, L, -2, sidx, oidx, tf);
+		encodeValue(st, L, -1, sidx, oidx, tf);
+	}
 }
 
 static void encodeValue(Strap *st, lua_State *L, int idx, int sidx, int oidx, int *tf) {
@@ -231,13 +229,20 @@ static void encodeValue(Strap *st, lua_State *L, int idx, int sidx, int oidx, in
 			encodeString(st, L, idx, sidx);
 			break;
 		case LUA_TTABLE: {
-			int len = getTableLen(L, idx);
-			if (len != -1) {
-				appendChar(st, AMF3_ARRAY);
-				encodeArray(st, L, idx, len, sidx, oidx, tf);
-			} else {
-				appendChar(st, AMF3_OBJECT);
-				encodeObject(st, L, idx, sidx, oidx, tf);
+			int len;
+			switch (getTableType(L, idx, &len)) {
+				case LUA_TNUMBER:
+					appendChar(st, AMF3_ARRAY);
+					encodeArray(st, L, idx, sidx, oidx, tf, len);
+					break;
+				case LUA_TSTRING:
+					appendChar(st, AMF3_OBJECT);
+					encodeObject(st, L, idx, sidx, oidx, tf);
+					break;
+				default:
+					appendChar(st, AMF3_DICTIONARY);
+					encodeDictionary(st, L, idx, sidx, oidx, tf, len);
+					break;
 			}
 			break;
 		}
