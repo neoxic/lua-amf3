@@ -3,8 +3,8 @@
 ** Please read the LICENSE file for license details
 */
 
-#include <lauxlib.h>
 #include "amf3.h"
+#include <lauxlib.h>
 
 
 static const struct luaL_Reg amf3_lib[] = {

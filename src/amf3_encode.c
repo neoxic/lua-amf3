@@ -3,10 +3,10 @@
 ** Please read the LICENSE file for license details
 */
 
+#include "amf3.h"
 #include <stdlib.h>
 #include <string.h>
 #include <lauxlib.h>
-#include "amf3.h"
 
 
 typedef struct Chunk Chunk;

@@ -3,9 +3,9 @@
 ** Please read the LICENSE file for license details
 */
 
+#include "amf3.h"
 #include <string.h>
 #include <lauxlib.h>
-#include "amf3.h"
 
 
 static int decodeValue(const char *buf, int pos, int size, lua_State *L, int sidx, int oidx, int tidx);
@@ -210,8 +210,9 @@ static int decodeItem(const char *buf, int pos, int size, lua_State *L, int sidx
 			return decodeDouble(buf, pos, size, L);
 		case AMF3_VECTOR_OBJECT:
 			return decodeValue(buf, pos, size, L, sidx, oidx, tidx);
+		default:
+			return 0;
 	}
-	return 0;
 }
 
 static int decodeVector(const char *buf, int pos, int size, lua_State *L, int sidx, int oidx, int tidx, int type) {
