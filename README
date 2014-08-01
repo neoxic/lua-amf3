@@ -45,6 +45,9 @@ For example, you might want to change the installation prefix in place:
 History
 -------
 
+Version 1.0.3 [31/Jul/2014]
++ Support for Vector and Dictionary types.
+
 Version 1.0.2 [20/May/2013]
 + Mixed tables are encoded as anonymous AMF3 objects.
 

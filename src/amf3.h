@@ -9,7 +9,7 @@
 #include <lua.h>
 
 
-#define VERSION "1.0.2"
+#define VERSION "1.0.3"
 
 #define AMF3_UNDEFINED     0x00
 #define AMF3_NULL          0x01
