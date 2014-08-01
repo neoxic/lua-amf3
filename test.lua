@@ -254,8 +254,8 @@ local strs = {
 			0x11, 0x09, 0x00, -- Dictionary (length 4)
 				0x09, 0x01, 0x01, 0x02, -- {} => false
 				0x02, 0x09, 0x04, -- false => {}
+				0x09, 0x04, 0x03, -- {} => true (should reset the key)
 				0x00, 0x03, -- undefined => true (should be skipped)
-				0x09, 0x04, 0x00, -- {} => undefined (should unset the key)
 			0x11, 0x02 -- Dictionary (reference 1)
 	),
 }
@@ -270,7 +270,7 @@ local vi = { 66051, -1 }
 local vu = { 66051, 4294967295 }
 local vd = { 0.1, 0.2 }
 local vo = { false, true, 0 }
-local di = { [false] = {} }
+local di = { [{}] = true, [false] = {} }
 local objs = {
 	{ 0.1, 'ABC', 'DEF', ba, 0.1, 'ABC', 'DEF', ba },
 	{ ma, ma },
