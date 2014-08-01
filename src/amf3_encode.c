@@ -206,8 +206,10 @@ static void encodeValue(Strap *st, lua_State *L, int idx, int sidx, int oidx, in
 	lua_checkstack(L, 5);
 	switch (lua_type(L, idx)) {
 		default:
-		case LUA_TNIL:
 			appendChar(st, AMF3_UNDEFINED);
+			break;
+		case LUA_TNIL:
+			appendChar(st, AMF3_NULL);
 			break;
 		case LUA_TBOOLEAN:
 			appendChar(st, lua_toboolean(L, idx) ? AMF3_TRUE : AMF3_FALSE);

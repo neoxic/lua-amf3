@@ -23,7 +23,7 @@ local table_insert = table.insert
 
 
 local vals = {
-	function () return nil end, -- Undefined
+	function () return nil end, -- Null
 	function () return math_random() < 0.5 end, -- Boolean
 	function () return math_random(-268435456, 268435455) end, -- Integer
 	function () return (math_random() - 0.5) * 1234567890 end, -- Double
@@ -255,7 +255,7 @@ local strs = {
 				0x09, 0x01, 0x01, 0x02, -- {} => false
 				0x02, 0x09, 0x04, -- false => {}
 				0x09, 0x04, 0x03, -- {} => true (should reset the key)
-				0x00, 0x03, -- undefined => true (should be skipped)
+				0x01, 0x03, -- null => true (should be skipped)
 			0x11, 0x02 -- Dictionary (reference 1)
 	),
 }
