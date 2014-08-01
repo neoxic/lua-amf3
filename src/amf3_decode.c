@@ -42,6 +42,24 @@ static int decodeInteger(const char *buf, int pos, int size, lua_State *L) {
 	return ofs;
 }
 
+static int decodeU32(const char *buf, int pos, int size, lua_State *L, int sign) {
+	union { int n; char c; } t;
+	union { unsigned n; char c[4]; } u;
+	lua_Number n;
+	if ((pos + 4) > size) return luaL_error(L, "insufficient U32 data at position %d", pos);
+	buf += pos;
+	t.n = 1;
+	if (!t.c) memcpy(u.c, buf, 4);
+	else { /* Little-endian machine */
+		int i;
+		for (i = 0; i < 4; ++i) u.c[i] = buf[3 - i];
+	}
+	if (sign) n = (signed)u.n;
+	else n = u.n;
+	lua_pushnumber(L, n);
+	return 4;
+}
+
 static int decodeDouble(const char *buf, int pos, int size, lua_State *L) {
 	union { int n; char c; } t;
 	union { double d; char c[8]; } u;
@@ -55,24 +73,6 @@ static int decodeDouble(const char *buf, int pos, int size, lua_State *L) {
 	}
 	lua_pushnumber(L, u.d);
 	return 8;
-}
-
-static int decodeInt32(const char *buf, int pos, int size, lua_State *L, int unsig) {
-	union { int n; char c; } t;
-	union { int n; char c[4]; } u;
-	lua_Number n;
-	if ((pos + 4) > size) return luaL_error(L, "insufficient U32 data at position %d", pos);
-	buf += pos;
-	t.n = 1;
-	if (!t.c) memcpy(u.c, buf, 4);
-	else { /* Little-endian machine */
-		int i;
-		for (i = 0; i < 4; ++i) u.c[i] = buf[3 - i];
-	}
-	if (unsig) n = (unsigned)u.n;
-	else n = u.n;
-	lua_pushnumber(L, n);
-	return 4;
 }
 
 static int decodeRef(const char *buf, int pos, int size, lua_State *L, int ridx, int *val) {
@@ -203,9 +203,9 @@ static int decodeObject(const char *buf, int pos, int size, lua_State *L, int si
 static int decodeItem(const char *buf, int pos, int size, lua_State *L, int sidx, int oidx, int tidx, int type) {
 	switch (type) {
 		case AMF3_VECTOR_INT:
-			return decodeInt32(buf, pos, size, L, 0);
+			return decodeU32(buf, pos, size, L, 1);
 		case AMF3_VECTOR_UINT:
-			return decodeInt32(buf, pos, size, L, 1);
+			return decodeU32(buf, pos, size, L, 0);
 		case AMF3_VECTOR_DOUBLE:
 			return decodeDouble(buf, pos, size, L);
 		case AMF3_VECTOR_OBJECT:
