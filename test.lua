@@ -101,7 +101,7 @@ local function compare(v1, v2)
 		r[v1] = true
 		r[v2] = true
 		local function search(t, xk, xv)
-			if compare(t[xk], xv) then
+			if t[xk] == xv then
 				return true
 			end
 			for k, v in pairs(t) do
