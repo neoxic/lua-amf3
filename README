@@ -10,9 +10,10 @@ The library provides two functions:
 amf3.encode(value)
 
 - Encodes 'value' into an AMF3 representation and returns it as a string.
-- A table with plain numeric keys 1..n without gaps is encoded as a sequence
-  using the AMF3 Array type. Otherwise, the table is encoded as an anonymous
-  object using the AMF3 Object type.
+- A table is encoded as a dense array when it has ascending integer keys
+  that start with 1 and have no gaps. An empty table adheres to this rule.
+  A table with all keys being strings is encoded as an anonymous object.
+  In all other cases, a table is encoded as a dictionary.
 
 amf3.decode(data [, position])
 
