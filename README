@@ -28,11 +28,11 @@ amf3.decode(data [, position])
 Installation
 ------------
 
-* Linux, OSX (Darwin):
+Linux, OS X:
 
     sudo make install
 
-* FreeBSD:
+BSD:
 
     sudo gmake install
 
@@ -45,13 +45,13 @@ For example, you might want to change the installation prefix in place:
 History
 -------
 
-Version 1.0.3 [31/Jul/2014]
+Version 1.0.3 [2014-07-31]
 + Support for Vector and Dictionary types.
 
-Version 1.0.2 [20/May/2013]
+Version 1.0.2 [2013-05-20]
 + Mixed tables are encoded as anonymous AMF3 objects.
 
-Version 1.0.1 [02/Jan/2013]
+Version 1.0.1 [2013-01-02]
 + Support for decoding the AMF3 Object type.
 
-Version 1.0.0 [19/Jun/2012]
+Version 1.0.0 [2012-06-19]
