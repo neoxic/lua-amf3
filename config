@@ -1,16 +1,23 @@
 OS := $(shell uname)
 
-# BSD
-ifneq (,$(findstring BSD,${OS}))
+# FreeBSD
+ifeq (${OS},FreeBSD)
 	LUAINC ?= ${PREFIX}/include/lua51
 	LUALIB ?= lua-5.1
+	LUABIN ?= lua51
+endif
+
+# OpenBSD
+ifeq (${OS},OpenBSD)
+	LUAINC ?= ${PREFIX}/include/lua-5.1
+	LUALIB ?= lua5.1
 	LUABIN ?= lua51
 endif
 
 # Linux
 ifeq (${OS},Linux)
 	PREFIX ?= /usr
-	ifeq (,$(wildcard /etc/gentoo-release /etc/SuSE-release)) # not for Gentoo and OpenSUSE
+	ifeq (,$(wildcard /etc/gentoo-release /etc/SuSE-release))
 		LUAINC ?= ${PREFIX}/include/lua5.1
 		LUALIB ?= lua5.1
 	endif

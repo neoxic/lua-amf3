@@ -36,7 +36,7 @@ BSD:
 
     sudo gmake install
 
-If you need specific adjustments, please refer to 'Makefile' and 'config'.
+If you need additional adjustments, please refer to 'Makefile' and 'config'.
 For example, you might want to change the installation prefix in place:
 
     sudo PREFIX=/your/path make install
