@@ -1,9 +1,8 @@
 cmake_minimum_required(VERSION 2.6)
 project(lua-amf3)
-
 find_package(PkgConfig)
 pkg_search_module(LUA REQUIRED lua-5.1 lua5.1 lua51 lua>=5.1)
-
+add_definitions(-ansi -pedantic -Wall -Wextra -Wshadow -Wformat -Wundef -Wwrite-strings -Wredundant-decls -Wno-uninitialized)
 include_directories(${LUA_INCLUDE_DIRS})
 link_directories(${LUA_LIBRARY_DIRS})
 unset(CMAKE_SHARED_LIBRARY_PREFIX)

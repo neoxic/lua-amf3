@@ -10,7 +10,7 @@ LIB  = amf3.so
 SRCS = src/amf3.c src/amf3_encode.c src/amf3_decode.c
 OBJS = ${SRCS:.c=.o}
 
-CFLAGS  += -O2 -fPIC -ansi -pedantic -Wall -Wextra -Wshadow -Wformat -Wundef -Wwrite-strings -Wno-uninitialized -I${LUAINC} ${MYCFLAGS}
+CFLAGS  += -O2 -fPIC -ansi -pedantic -Wall -Wextra -Wshadow -Wformat -Wundef -Wwrite-strings -Wredundant-decls -Wno-uninitialized -I${LUAINC} ${MYCFLAGS}
 LDFLAGS += -l${LUALIB} -L${PREFIX}/lib ${MYLDFLAGS}
 
 CC ?= cc
