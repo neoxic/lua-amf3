@@ -1,0 +1,13 @@
+cmake_minimum_required(VERSION 2.6)
+project(lua-amf3)
+
+find_package(PkgConfig)
+pkg_search_module(LUA REQUIRED lua-5.1 lua5.1 lua51 lua>=5.1)
+
+include_directories(${LUA_INCLUDE_DIRS})
+link_directories(${LUA_LIBRARY_DIRS})
+unset(CMAKE_SHARED_LIBRARY_PREFIX)
+set(CMAKE_SHARED_LIBRARY_SUFFIX .so)
+add_library(amf3 SHARED src/amf3.c src/amf3_encode.c src/amf3_decode.c)
+target_link_libraries(amf3 ${LUA_LIBRARIES})
+install(TARGETS amf3 DESTINATION lib/lua/5.1)

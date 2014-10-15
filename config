@@ -14,6 +14,13 @@ ifeq (${OS},OpenBSD)
 	LUABIN ?= lua51
 endif
 
+# Darwin
+ifeq (${OS},Darwin)
+	LUAINC ?= ${PREFIX}/include/lua5.1
+	LUALIB ?= lua5.1
+	LUABIN ?= lua5.1
+endif
+
 # Linux
 ifeq (${OS},Linux)
 	PREFIX ?= /usr
