@@ -3,8 +3,8 @@
 ** Please read the LICENSE file for license details
 */
 
-#ifndef amf3_h
-#define amf3_h
+#ifndef AMF3_H
+#define AMF3_H
 
 #include <lua.h>
 
@@ -30,8 +30,8 @@
 #define AMF3_VECTOR_OBJECT 0x10
 #define AMF3_DICTIONARY    0x11
 
-#define AMF3_MAX_INT     268435455 /*  (2^28)-1 */
-#define AMF3_MIN_INT    -268435456 /* -(2^28)   */
+#define AMF3_MAX_INT  268435455 /*  (2^28)-1 */
+#define AMF3_MIN_INT -268435456 /* -(2^28)   */
 
 
 int amf3_encode(lua_State *L);
