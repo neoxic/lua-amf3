@@ -200,7 +200,7 @@ static int decodeObject(const char *buf, int pos, int size, lua_State *L, int si
 	return pos - old;
 }
 
-static int decodeItem(const char *buf, int pos, int size, lua_State *L, int sidx, int oidx, int tidx, int type) {
+static int decodeVectorItem(const char *buf, int pos, int size, lua_State *L, int sidx, int oidx, int tidx, int type) {
 	switch (type) {
 		case AMF3_VECTOR_INT:
 			return decodeU32(buf, pos, size, L, 1);
@@ -230,7 +230,7 @@ static int decodeVector(const char *buf, int pos, int size, lua_State *L, int si
 			lua_pop(L, 1);
 		}
 		for (i = 0; i < len; ++i) {
-			pos += decodeItem(buf, pos, size, L, sidx, oidx, tidx, type);
+			pos += decodeVectorItem(buf, pos, size, L, sidx, oidx, tidx, type);
 			lua_rawseti(L, -2, i + 1);
 		}
 	}
