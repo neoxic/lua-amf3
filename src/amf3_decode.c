@@ -146,9 +146,6 @@ static int decodeObject(const char *buf, int pos, int size, lua_State *L, int si
 	pos += decodeRef(buf, pos, size, L, oidx, &pfx);
 	if (pfx != -1) {
 		int def = pfx & 1;
-		lua_newtable(L);
-		lua_pushvalue(L, -1);
-		luaL_ref(L, oidx);
 		pfx >>= 1;
 		if (def) { /* New traits */
 			int i, n;
@@ -170,15 +167,18 @@ static int decodeObject(const char *buf, int pos, int size, lua_State *L, int si
 			pfx = lua_tointeger(L, -1);
 			lua_pop(L, 1);
 		}
+		lua_newtable(L);
+		lua_pushvalue(L, -1);
+		luaL_ref(L, oidx);
 		if (pfx & 1) { /* Externalizable */
 			pos += decodeValue(buf, pos, size, L, sidx, oidx, tidx);
-			lua_setfield(L, -3, "_data");
+			lua_setfield(L, -2, "_data");
 		} else {
 			int i, n;
 			for (i = 0, n = pfx >> 2; i < n; ++i) {
-				lua_rawgeti(L, -1, i + 3);
+				lua_rawgeti(L, -2, i + 3);
 				pos += decodeValue(buf, pos, size, L, sidx, oidx, tidx);
-				lua_rawset(L, -4);
+				lua_rawset(L, -3);
 			}
 			if (pfx & 2) { /* Dynamic */
 				for ( ;; ) {
@@ -188,14 +188,14 @@ static int decodeObject(const char *buf, int pos, int size, lua_State *L, int si
 						break;
 					}
 					pos += decodeValue(buf, pos, size, L, sidx, oidx, tidx);
-					lua_rawset(L, -4);
+					lua_rawset(L, -3);
 				}
 			}
 		}
-		lua_rawgeti(L, -1, 2);
-		if (lua_objlen(L, -1)) lua_setfield(L, -3, "_class");
+		lua_rawgeti(L, -2, 2);
+		if (lua_objlen(L, -1)) lua_setfield(L, -2, "_class");
 		else lua_pop(L, 1);
-		lua_pop(L, 1);
+		lua_remove(L, -2);
 	}
 	return pos - old;
 }
@@ -221,14 +221,14 @@ static int decodeVector(const char *buf, int pos, int size, lua_State *L, int si
 	if (len != -1) {
 		unsigned char fv;
 		int i;
-		lua_newtable(L);
-		lua_pushvalue(L, -1);
-		luaL_ref(L, oidx);
 		pos += decodeU8(buf, pos, size, L, &fv); /* 'fixed-vector' marker */
 		if (type == AMF3_VECTOR_OBJECT) { /* 'object-type-name' marker */
 			pos += decodeString(buf, pos, size, L, sidx, 0);
 			lua_pop(L, 1);
 		}
+		lua_newtable(L);
+		lua_pushvalue(L, -1);
+		luaL_ref(L, oidx);
 		for (i = 0; i < len; ++i) {
 			pos += decodeVectorItem(buf, pos, size, L, sidx, oidx, tidx, type);
 			lua_rawseti(L, -2, i + 1);
@@ -242,10 +242,10 @@ static int decodeDictionary(const char *buf, int pos, int size, lua_State *L, in
 	pos += decodeRef(buf, pos, size, L, oidx, &len);
 	if (len != -1) {
 		unsigned char wk;
+		pos += decodeU8(buf, pos, size, L, &wk); /* 'weak-keys' marker */
 		lua_newtable(L);
 		lua_pushvalue(L, -1);
 		luaL_ref(L, oidx);
-		pos += decodeU8(buf, pos, size, L, &wk); /* 'weak-keys' marker */
 		while (len--) {
 			pos += decodeValue(buf, pos, size, L, sidx, oidx, tidx);
 			pos += decodeValue(buf, pos, size, L, sidx, oidx, tidx);
