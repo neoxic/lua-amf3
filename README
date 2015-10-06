@@ -30,24 +30,24 @@ Installation
 
 Linux, OS X:
 
-	make
-	make install
+  make
+  make install
 
 BSD:
 
-	gmake
-	gmake install
+  gmake
+  gmake install
 
 If you need additional adjustments, please refer to 'Makefile' and 'config'.
 For example, you might want to change the installation prefix in place:
 
-	make PREFIX=/your/path install
+  make PREFIX=/your/path install
 
 You can also build with CMake:
 
-	cmake .
-	make
-	make install
+  cmake .
+  make
+  make install
 
 
 History
