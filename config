@@ -1,5 +1,10 @@
 OS := $(shell uname)
 
+# Linux
+ifeq (${OS},Linux)
+	PREFIX ?= /usr
+endif
+
 # FreeBSD
 ifeq (${OS},FreeBSD)
 	LUAINC ?= ${PREFIX}/include/lua51
@@ -7,25 +12,11 @@ ifeq (${OS},FreeBSD)
 	LUABIN ?= lua51
 endif
 
-# OpenBSD
-ifeq (${OS},OpenBSD)
-	LUAINC ?= ${PREFIX}/include/lua-5.1
-	LUALIB ?= lua5.1
-	LUABIN ?= lua51
-endif
-
-# Darwin
-ifeq (${OS},Darwin)
-	LUAINC ?= ${PREFIX}/include/lua5.1
-	LUALIB ?= lua5.1
-	LUABIN ?= lua5.1
-endif
-
-# Linux
-ifeq (${OS},Linux)
+# Cygwin
+ifneq (,$(findstring CYGWIN,${OS}))
 	PREFIX ?= /usr
-	ifeq (,$(wildcard /etc/gentoo-release /etc/SuSE-release))
-		LUAINC ?= ${PREFIX}/include/lua5.1
-		LUALIB ?= lua5.1
-	endif
+	LIBNAME ?= amf3.dll
+	LUAINC ?= ${PREFIX}/include/lua-5.1
+	LUALIB ?= lua-5.1
+	XCFLAGS ?= -O2
 endif

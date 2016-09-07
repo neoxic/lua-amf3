@@ -1,12 +1,11 @@
 /*
-** Copyright (C) 2012-2015 Arseny Vakhrushev <arseny.vakhrushev at gmail dot com>
+** Copyright (C) 2012-2016 Arseny Vakhrushev <arseny.vakhrushev at gmail dot com>
 ** Please read the LICENSE file for license details
 */
 
 #include "amf3.h"
 #include <string.h>
 #include <lauxlib.h>
-
 
 static int decodeValue(const char *buf, int pos, int size, lua_State *L, int sidx, int oidx, int tidx);
 
@@ -314,7 +313,7 @@ int amf3_decode(lua_State *L) {
 	size_t size;
 	const char *buf = luaL_checklstring(L, 1, &size);
 	int pos = luaL_optint(L, 2, 0);
-	luaL_argcheck(L, (pos >= 0) && (pos <= (int)size), 2, "invalid position");
+	luaL_argcheck(L, pos >= 0 && pos <= (int)size, 2, "invalid position");
 	lua_settop(L, 1);
 	lua_newtable(L);
 	lua_newtable(L);

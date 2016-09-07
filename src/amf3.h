@@ -1,5 +1,5 @@
 /*
-** Copyright (C) 2012-2015 Arseny Vakhrushev <arseny.vakhrushev at gmail dot com>
+** Copyright (C) 2012-2016 Arseny Vakhrushev <arseny.vakhrushev at gmail dot com>
 ** Please read the LICENSE file for license details
 */
 
@@ -7,7 +7,6 @@
 #define AMF3_H
 
 #include <lua.h>
-
 
 #define VERSION "1.0.3"
 
@@ -33,9 +32,7 @@
 #define AMF3_MAX_INT  268435455 /*  (2^28)-1 */
 #define AMF3_MIN_INT -268435456 /* -(2^28)   */
 
-
 int amf3_encode(lua_State *L);
 int amf3_decode(lua_State *L);
-
 
 #endif

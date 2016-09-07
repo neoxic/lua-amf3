@@ -1,5 +1,5 @@
 /*
-** Copyright (C) 2012-2015 Arseny Vakhrushev <arseny.vakhrushev at gmail dot com>
+** Copyright (C) 2012-2016 Arseny Vakhrushev <arseny.vakhrushev at gmail dot com>
 ** Please read the LICENSE file for license details
 */
 
@@ -7,7 +7,6 @@
 #include <stdlib.h>
 #include <string.h>
 #include <lauxlib.h>
-
 
 typedef struct Chunk Chunk;
 typedef struct Strap Strap;
@@ -22,7 +21,6 @@ struct Strap {
 	Chunk *first;
 	Chunk *last;
 };
-
 
 static Chunk *newChunk() {
 	Chunk *ch = malloc(sizeof *ch);
@@ -82,8 +80,8 @@ static int getTableType(lua_State *L, int idx, int *len) {
 		type = lua_type(L, -2); /* Key type */
 		if (!n++) res = type;
 		if (type == res) {
-			if ((type == LUA_TNUMBER) && (lua_tointeger(L, -2) == n)) continue;
-			if ((type == LUA_TSTRING) && lua_objlen(L, -2)) continue; /* Empty key can't be represented in AMF3 */
+			if (type == LUA_TNUMBER && lua_tointeger(L, -2) == n) continue;
+			if (type == LUA_TSTRING && lua_objlen(L, -2)) continue; /* Empty key can't be represented in AMF3 */
 		}
 		res = LUA_TNONE;
 	}
@@ -217,7 +215,7 @@ static void encodeValue(Strap *st, lua_State *L, int idx, int sidx, int oidx, in
 		case LUA_TNUMBER: {
 			double d = lua_tonumber(L, idx);
 			int n = (int)d;
-			if (((double)n == d) && (n >= AMF3_MIN_INT) && (n <= AMF3_MAX_INT)) {
+			if ((double)n == d && n >= AMF3_MIN_INT && n <= AMF3_MAX_INT) {
 				appendChar(st, AMF3_INTEGER);
 				encodeU29(st, n);
 			} else {

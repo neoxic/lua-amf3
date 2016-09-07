@@ -1,33 +1,36 @@
 include config
 
 PREFIX ?= /usr/local
+LIBNAME ?= amf3.so
 LIBDIR ?= ${PREFIX}/lib/lua/5.1
-LUAINC ?= ${PREFIX}/include
-LUALIB ?= lua
+LUAINC ?= ${PREFIX}/include/lua5.1
+LUALIB ?= lua5.1
 LUABIN ?= ${LUALIB}
 
-LIB  = amf3.so
-SRCS = src/amf3.c src/amf3_encode.c src/amf3_decode.c
-OBJS = ${SRCS:.c=.o}
-
-CFLAGS  += -O2 -fPIC -ansi -pedantic -Wall -Wextra -Wshadow -Wformat -Wundef -Wwrite-strings -Wredundant-decls -Wno-uninitialized -I${LUAINC} ${MYCFLAGS}
-LDFLAGS += -l${LUALIB} -L${PREFIX}/lib ${MYLDFLAGS}
+XCFLAGS ?= -O2 -fPIC
+XLDFLAGS ?=
 
 CC ?= cc
 
+SRCS = src/amf3.c src/amf3_encode.c src/amf3_decode.c
+OBJS = ${SRCS:.c=.o}
+
+CFLAGS += -ansi -pedantic -Wall -Wextra -Wshadow -Wformat -Wundef -Wwrite-strings -Wredundant-decls -Wno-uninitialized -I${LUAINC} ${XCFLAGS}
+LDFLAGS += -l${LUALIB} -L${PREFIX}/lib ${XLDFLAGS}
+
 .PHONY: all
 
-all: ${LIB}
+all: ${LIBNAME}
 
-${LIB}: ${OBJS}
-	${CC} -shared -o $@ ${LDFLAGS} ${OBJS}
+${LIBNAME}: ${OBJS}
+	${CC} -shared -o $@ ${OBJS} ${LDFLAGS}
 
 clean:
-	rm -f ${LIB} ${OBJS}
+	rm -f ${LIBNAME} ${OBJS}
 
 install: all
 	install -d ${LIBDIR}
-	install ${LIB} ${LIBDIR}
+	install ${LIBNAME} ${LIBDIR}
 
 test: all
 	${LUABIN} test.lua
