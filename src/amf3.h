@@ -1,14 +1,31 @@
 /*
-** Copyright (C) 2012-2016 Arseny Vakhrushev <arseny.vakhrushev at gmail dot com>
-** Please read the LICENSE file for license details
+** Copyright (C) 2012-2018 Arseny Vakhrushev <arseny.vakhrushev@gmail.com>
+**
+** Permission is hereby granted, free of charge, to any person obtaining a copy
+** of this software and associated documentation files (the "Software"), to deal
+** in the Software without restriction, including without limitation the rights
+** to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+** copies of the Software, and to permit persons to whom the Software is
+** furnished to do so, subject to the following conditions:
+**
+** The above copyright notice and this permission notice shall be included in
+** all copies or substantial portions of the Software.
+**
+** THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+** IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+** FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
+** AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+** LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+** OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+** THE SOFTWARE.
 */
 
-#ifndef AMF3_H
-#define AMF3_H
+#pragma once
 
-#include <lua.h>
+#include <lauxlib.h>
 
-#define VERSION "1.0.3"
+#define MODNAME "lua-amf3"
+#define VERSION "2.0.0-dev"
 
 #define AMF3_UNDEFINED     0x00
 #define AMF3_NULL          0x01
@@ -29,10 +46,14 @@
 #define AMF3_VECTOR_OBJECT 0x10
 #define AMF3_DICTIONARY    0x11
 
-#define AMF3_MAX_INT  268435455 /*  (2^28)-1 */
-#define AMF3_MIN_INT -268435456 /* -(2^28)   */
+#define AMF3_MAX_INT  268435455
+#define AMF3_MIN_INT -268435456
+
+#define checkStack(L) luaL_checkstack(L, LUA_MINSTACK, "too many nested values")
+
+#if LUA_VERSION_NUM < 502
+#define lua_rawlen(L, idx) lua_objlen(L, idx)
+#endif
 
 int amf3_encode(lua_State *L);
 int amf3_decode(lua_State *L);
-
-#endif

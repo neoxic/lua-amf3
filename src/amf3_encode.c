@@ -1,97 +1,89 @@
 /*
-** Copyright (C) 2012-2016 Arseny Vakhrushev <arseny.vakhrushev at gmail dot com>
-** Please read the LICENSE file for license details
+** Copyright (C) 2012-2018 Arseny Vakhrushev <arseny.vakhrushev@gmail.com>
+**
+** Permission is hereby granted, free of charge, to any person obtaining a copy
+** of this software and associated documentation files (the "Software"), to deal
+** in the Software without restriction, including without limitation the rights
+** to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+** copies of the Software, and to permit persons to whom the Software is
+** furnished to do so, subject to the following conditions:
+**
+** The above copyright notice and this permission notice shall be included in
+** all copies or substantial portions of the Software.
+**
+** THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+** IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+** FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT.  IN NO EVENT SHALL THE
+** AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+** LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+** OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+** THE SOFTWARE.
 */
 
-#include "amf3.h"
-#include <stdlib.h>
 #include <string.h>
-#include <lauxlib.h>
+#include <stdarg.h>
+#include "amf3.h"
 
-typedef struct Chunk Chunk;
-typedef struct Strap Strap;
+#define MAXSTACK 1000 /* Arbitrary stack size limit to check for recursion */
 
-struct Chunk {
-	char  buf[1000]; /* Some suitable chunk size to store both small and big buffers well enough and to fit 1Kb memory block */
-	int   size;
-	Chunk *next;
-};
+typedef struct {
+	char *buf, data[1024];
+	size_t pos, size;
+} Box;
 
-struct Strap {
-	Chunk *first;
-	Chunk *last;
-};
-
-static Chunk *newChunk() {
-	Chunk *ch = malloc(sizeof *ch);
-	if (!ch) return 0;
-	ch->size = 0;
-	ch->next = 0;
-	return ch;
+static void *resizeBox(lua_State *L, Box *box, size_t size) {
+	void *ud;
+	lua_Alloc allocf = lua_getallocf(L, &ud);
+	int dyn = box->buf != box->data; /* Dynamically allocated? */
+	void *buf = dyn ? allocf(ud, box->buf, box->size, size) : allocf(ud, 0, 0, size);
+	if (!size) return 0;
+	if (!buf) luaL_error(L, "cannot allocate buffer");
+	if (!dyn) memcpy(buf, box->buf, box->pos);
+	box->buf = buf;
+	box->size = size;
+	return buf;
 }
 
-static void initStrap(Strap *st) {
-	memset(st, 0, sizeof *st);
+static int m__gc(lua_State *L) {
+	resizeBox(L, lua_touserdata(L, 1), 0);
+	return 0;
 }
 
-static void appendStrap(Strap *st, const char *buf, int size) {
-	Chunk *ch = st->last;
-	if (!ch) {
-		ch = st->first = st->last = newChunk();
-		if (!ch) return; /* Out of memory */
+static Box *newBox(lua_State *L) {
+	Box *box = lua_newuserdata(L, sizeof *box);
+	box->buf = box->data;
+	box->pos = 0;
+	box->size = sizeof box->data;
+	if (luaL_newmetatable(L, MODNAME)) {
+		lua_pushcfunction(L, m__gc);
+		lua_setfield(L, -2, "__gc");
 	}
-	for ( ;; ) {
-		int avail = sizeof ch->buf - ch->size;
-		if (avail >= size) break;
-		memcpy(ch->buf + ch->size, buf, avail);
-		ch->size += avail;
-		ch->next = newChunk();
-		if (!ch->next) return; /* Out of memory */
-		ch = st->last = ch->next;
-		buf += avail;
-		size -= avail;
+	lua_setmetatable(L, -2);
+	return box;
+}
+
+static void *appendBox(lua_State *L, Box *box, size_t size) {
+	char *buf = box->buf;
+	size_t pos = box->pos;
+	size_t old = box->size;
+	size_t new = pos + size;
+	if (new > old) { /* Expand buffer */
+		old <<= 1; /* At least twice the old size */
+		buf = resizeBox(L, box, new > old ? new : old);
 	}
-	memcpy(ch->buf + ch->size, buf, size);
-	ch->size += size;
+	box->pos = new;
+	return buf + pos;
 }
 
-static void flushStrap(Strap *st, lua_State *L) {
-	luaL_Buffer b;
-	Chunk *ch = st->first;
-	Chunk *next;
-	luaL_buffinit(L, &b);
-	while (ch) {
-		luaL_addlstring(&b, ch->buf, ch->size);
-		next = ch->next;
-		free(ch);
-		ch = next;
-	}
-	luaL_pushresult(&b);
-	initStrap(st);
+static void appendData(lua_State *L, Box *box, const char *data, size_t size) {
+	memcpy(appendBox(L, box, size), data, size);
 }
 
-static void appendChar(Strap *st, char c) {
-	appendStrap(st, &c, 1);
+static void appendChar(lua_State *L, Box *box, char c) {
+	appendData(L, box, &c, 1);
 }
 
-static int getTableType(lua_State *L, int idx, int *len) {
-	int type, n = 0, res = LUA_TNUMBER;
-	for (lua_pushnil(L); lua_next(L, idx); lua_pop(L, 1)) {
-		type = lua_type(L, -2); /* Key type */
-		if (!n++) res = type;
-		if (type == res) {
-			if (type == LUA_TNUMBER && lua_tointeger(L, -2) == n) continue;
-			if (type == LUA_TSTRING && lua_objlen(L, -2)) continue; /* Empty key can't be represented in AMF3 */
-		}
-		res = LUA_TNONE;
-	}
-	*len = n;
-	return res;
-}
-
-static void encodeValue(Strap *st, lua_State *L, int idx, int sidx, int oidx, int *tf);
-
-static void encodeU29(Strap *st, int val) {
+static void encodeU29(lua_State *L, Box *box, int val) {
 	char buf[4];
 	int len;
 	val &= 0x1fffffff;
@@ -114,150 +106,220 @@ static void encodeU29(Strap *st, int val) {
 		buf[3] = val;
 		len = 4;
 	}
-	appendStrap(st, buf, len);
+	appendData(L, box, buf, len);
 }
 
-static void encodeDouble(Strap *st, double val) {
+static void encodeDouble(lua_State *L, Box *box, double val) {
 	union { int n; char c; } t;
-	union { double d; char c[8]; } u;
+	union { double n; char c[8]; } u;
 	char buf[8];
 	t.n = 1;
-	u.d = val;
+	u.n = val;
 	if (!t.c) memcpy(buf, u.c, 8);
 	else { /* Little-endian machine */
 		int i;
 		for (i = 0; i < 8; ++i) buf[7 - i] = u.c[i];
 	}
-	appendStrap(st, buf, 8);
+	appendData(L, box, buf, 8);
 }
 
-static int encodeRef(Strap *st, lua_State *L, int idx, int ridx) {
+static int encodeRef(lua_State *L, Box *box, int idx, int ridx) {
 	int ref;
 	lua_pushvalue(L, idx);
 	lua_rawget(L, ridx);
-	ref = lua_isnil(L, -1) ? -1 : lua_tointeger(L, -1);
-	lua_pop(L, 1);
-	if (ref != -1) {
-		encodeU29(st, ref << 1);
+	if (!lua_isnil(L, -1)) {
+		encodeU29(L, box, lua_tointeger(L, -1) << 1);
+		lua_pop(L, 1);
 		return 1;
 	}
 	lua_rawgeti(L, ridx, 1);
 	ref = lua_tointeger(L, -1);
-	lua_pop(L, 1);
-	if (ref <= AMF3_MAX_INT) {
-		lua_pushvalue(L, idx);
-		lua_pushinteger(L, ref);
-		lua_rawset(L, ridx);
-		lua_pushinteger(L, ref + 1);
-		lua_rawseti(L, ridx, 1);
+	if (ref > AMF3_MAX_INT) luaL_error(L, "reference table overflow");
+	lua_pop(L, 2);
+	lua_pushvalue(L, idx);
+	lua_pushinteger(L, ref);
+	lua_rawset(L, ridx);
+	lua_pushinteger(L, ref + 1);
+	lua_rawseti(L, ridx, 1);
+	return 0;
+}
+
+static void encodeString(lua_State *L, Box *box, int idx, int ridx) {
+	size_t len;
+	const char *str = lua_tolstring(L, idx, &len);
+	if (len && encodeRef(L, box, idx, ridx)) return; /* Empty string is never sent by reference */
+	if (len > AMF3_MAX_INT) luaL_error(L, "string too long");
+	encodeU29(L, box, (len << 1) | 1);
+	appendData(L, box, str, len);
+}
+
+static int error(lua_State *L, int *nerr, const char *fmt, ...) {
+	va_list ap;
+	va_start(ap, fmt);
+	lua_pushvfstring(L, fmt, ap);
+	va_end(ap);
+	lua_insert(L, -(++(*nerr)));
+	return -1;
+}
+
+static int errorTrace(lua_State *L, int *nerr, int idx) {
+	switch (lua_type(L, idx)) {
+		case LUA_TNUMBER:
+#if LUA_VERSION_NUM >= 503
+			if (lua_isinteger(L, idx)) return error(L, nerr, "[%I] => ", lua_tointeger(L, idx));
+#endif
+			return error(L, nerr, "[%f] => ", lua_tonumber(L, idx));
+		case LUA_TSTRING:
+			return error(L, nerr, "[\"%s\"] => ", lua_tostring(L, idx));
+		default:
+			return error(L, nerr, "[%s: %p] => ", luaL_typename(L, idx), lua_topointer(L, idx));
+	}
+}
+
+static int encodeValue(lua_State *L, Box *box, int idx, const char *ev, int sidx, int oidx, int *tf, int *nerr);
+
+static int encodeArray(lua_State *L, Box *box, int idx, const char *ev, int sidx, int oidx, int *tf, int *nerr, int len) {
+	int i, top = lua_gettop(L);
+	if (encodeRef(L, box, idx, oidx)) return 0;
+	encodeU29(L, box, (len << 1) | 1);
+	appendChar(L, box, 0x01); /* Empty associative part */
+	for (i = 0; i < len; ++i) {
+		lua_rawgeti(L, idx, i + 1);
+		if (encodeValue(L, box, top + 1, ev, sidx, oidx, tf, nerr)) return error(L, nerr, "[%d] => ", i + 1);
+		lua_pop(L, 1);
 	}
 	return 0;
 }
 
-static void encodeString(Strap *st, lua_State *L, int idx, int ridx) {
-	size_t len;
-	const char *str = lua_tolstring(L, idx, &len);
-	if (len && encodeRef(st, L, idx, ridx)) return; /* Empty string is never sent by reference */
-	if (len > AMF3_MAX_INT) len = AMF3_MAX_INT;
-	encodeU29(st, (len << 1) | 1);
-	appendStrap(st, str, len);
-}
-
-static void encodeArray(Strap *st, lua_State *L, int idx, int sidx, int oidx, int *tf, int len) {
-	if (encodeRef(st, L, idx, oidx)) return;
-	if (len > AMF3_MAX_INT) len = AMF3_MAX_INT;
-	encodeU29(st, (len << 1) | 1);
-	appendChar(st, 0x01); /* Empty associative part */
-	for (lua_pushnil(L); lua_next(L, idx); lua_pop(L, 1)) {
-		encodeValue(st, L, -1, sidx, oidx, tf);
-	}
-}
-
-static void encodeObject(Strap *st, lua_State *L, int idx, int sidx, int oidx, int *tf) {
-	if (encodeRef(st, L, idx, oidx)) return;
-	if (*tf) appendChar(st, 0x01); /* Traits have been encoded earlier */
+static int encodeObject(lua_State *L, Box *box, int idx, const char *ev, int sidx, int oidx, int *tf, int *nerr) {
+	int top = lua_gettop(L);
+	if (encodeRef(L, box, idx, oidx)) return 0;
+	if (*tf) appendChar(L, box, 0x01); /* Traits have been encoded earlier */
 	else {
 		*tf = 1;
-		appendChar(st, 0x0b); /* Traits: no static members, externalizable=0, dynamic=1 */
-		appendChar(st, 0x01); /* Empty class name */
+		appendChar(L, box, 0x0b); /* Traits: no static members, externalizable=0, dynamic=1 */
+		appendChar(L, box, 0x01); /* Empty class name */
 	}
 	for (lua_pushnil(L); lua_next(L, idx); lua_pop(L, 1)) {
-		encodeString(st, L, -2, sidx);
-		encodeValue(st, L, -1, sidx, oidx, tf);
+		encodeString(L, box, top + 1, sidx);
+		if (encodeValue(L, box, top + 2, ev, sidx, oidx, tf, nerr)) return errorTrace(L, nerr, top + 1);
 	}
-	appendChar(st, 0x01);
+	appendChar(L, box, 0x01);
+	return 0;
 }
 
-static void encodeDictionary(Strap *st, lua_State *L, int idx, int sidx, int oidx, int *tf, int len) {
-	if (encodeRef(st, L, idx, oidx)) return;
-	if (len > AMF3_MAX_INT) len = AMF3_MAX_INT;
-	encodeU29(st, (len << 1) | 1);
-	appendChar(st, 0x00); /* weak-keys=0 */
+static int encodeDictionary(lua_State *L, Box *box, int idx, const char *ev, int sidx, int oidx, int *tf, int *nerr, int len) {
+	int top = lua_gettop(L);
+	if (encodeRef(L, box, idx, oidx)) return 0;
+	encodeU29(L, box, (len << 1) | 1);
+	appendChar(L, box, 0x00); /* weak-keys=0 */
 	for (lua_pushnil(L); lua_next(L, idx); lua_pop(L, 1)) {
-		encodeValue(st, L, -2, sidx, oidx, tf);
-		encodeValue(st, L, -1, sidx, oidx, tf);
+		if (encodeValue(L, box, top + 1, ev, sidx, oidx, tf, nerr)) return errorTrace(L, nerr, idx);
+		if (encodeValue(L, box, top + 2, ev, sidx, oidx, tf, nerr)) return errorTrace(L, nerr, top + 1);
 	}
+	return 0;
 }
 
-static void encodeValue(Strap *st, lua_State *L, int idx, int sidx, int oidx, int *tf) {
-	if (idx < 0) idx = lua_gettop(L) + idx + 1;
-	lua_checkstack(L, 5);
+static int getTableType(lua_State *L, int idx, int *len) {
+	int res;
+	size_t n;
+	lua_getfield(L, idx, "__array");
+	if (lua_toboolean(L, -1)) {
+		res = LUA_TNUMBER; /* Dense array */
+		if (!lua_isnumber(L, -1)) n = lua_rawlen(L, idx);
+		else {
+			lua_Integer i = lua_tointeger(L, -1);
+			if (i < 0) i = 0;
+			n = i;
+		}
+	} else {
+		res = LUA_TSTRING; /* Associative array */
+		for (n = 0, lua_pushnil(L); lua_next(L, idx); lua_pop(L, 1), ++n) {
+			if (res == LUA_TNONE) continue; /* Keep counting length */
+			if (lua_type(L, -2) == LUA_TSTRING && lua_rawlen(L, -2)) continue;
+			res = LUA_TNONE; /* Dictionary */
+		}
+	}
+	lua_pop(L, 1);
+	if (n > AMF3_MAX_INT) luaL_error(L, "table too big");
+	*len = n;
+	return res;
+}
+
+static int encodeValueData(lua_State *L, Box *box, int idx, const char *ev, int sidx, int oidx, int *tf, int *nerr) {
 	switch (lua_type(L, idx)) {
-		default:
-			appendChar(st, AMF3_UNDEFINED);
-			break;
 		case LUA_TNIL:
-			appendChar(st, AMF3_NULL);
+			appendChar(L, box, AMF3_UNDEFINED);
 			break;
 		case LUA_TBOOLEAN:
-			appendChar(st, lua_toboolean(L, idx) ? AMF3_TRUE : AMF3_FALSE);
+			appendChar(L, box, lua_toboolean(L, idx) ? AMF3_TRUE : AMF3_FALSE);
 			break;
 		case LUA_TNUMBER: {
-			double d = lua_tonumber(L, idx);
-			int n = (int)d;
-			if ((double)n == d && n >= AMF3_MIN_INT && n <= AMF3_MAX_INT) {
-				appendChar(st, AMF3_INTEGER);
-				encodeU29(st, n);
+			lua_Number n = lua_tonumber(L, idx);
+			lua_Integer i = (lua_Integer)n;
+			if (i == n && i >= AMF3_MIN_INT && i <= AMF3_MAX_INT) {
+				appendChar(L, box, AMF3_INTEGER);
+				encodeU29(L, box, i);
 			} else {
-				appendChar(st, AMF3_DOUBLE);
-				encodeDouble(st, d);
+				appendChar(L, box, AMF3_DOUBLE);
+				encodeDouble(L, box, n);
 			}
 			break;
 		}
 		case LUA_TSTRING:
-			appendChar(st, AMF3_STRING);
-			encodeString(st, L, idx, sidx);
+			appendChar(L, box, AMF3_STRING);
+			encodeString(L, box, idx, sidx);
 			break;
 		case LUA_TTABLE: {
 			int len;
+			if (lua_gettop(L) >= MAXSTACK) return error(L, nerr, "recursion detected");
+			if (lua_getmetatable(L, idx)) return error(L, nerr, "table with metatable unexpected");
+			checkStack(L);
 			switch (getTableType(L, idx, &len)) {
 				case LUA_TNUMBER:
-					appendChar(st, AMF3_ARRAY);
-					encodeArray(st, L, idx, sidx, oidx, tf, len);
-					break;
+					appendChar(L, box, AMF3_ARRAY);
+					return encodeArray(L, box, idx, ev, sidx, oidx, tf, nerr, len);
 				case LUA_TSTRING:
-					appendChar(st, AMF3_OBJECT);
-					encodeObject(st, L, idx, sidx, oidx, tf);
-					break;
+					appendChar(L, box, AMF3_OBJECT);
+					return encodeObject(L, box, idx, ev, sidx, oidx, tf, nerr);
 				default:
-					appendChar(st, AMF3_DICTIONARY);
-					encodeDictionary(st, L, idx, sidx, oidx, tf, len);
-					break;
+					appendChar(L, box, AMF3_DICTIONARY);
+					return encodeDictionary(L, box, idx, ev, sidx, oidx, tf, nerr, len);
 			}
-			break;
 		}
+		case LUA_TLIGHTUSERDATA:
+			if (!lua_touserdata(L, idx)) {
+				appendChar(L, box, AMF3_NULL);
+				break;
+			} /* Fall through */
+		default:
+			return error(L, nerr, "%s unexpected", luaL_typename(L, idx));
 	}
+	return 0;
+}
+
+static int encodeValue(lua_State *L, Box *box, int idx, const char *ev, int sidx, int oidx, int *tf, int *nerr) {
+	int res, old = idx;
+	if (luaL_callmeta(L, idx, ev)) idx = lua_gettop(L); /* Use modified value */
+	res = encodeValueData(L, box, idx, ev, sidx, oidx, tf, nerr);
+	if (idx != old) lua_remove(L, idx); /* Remove modified value */
+	return res;
 }
 
 int amf3_encode(lua_State *L) {
-	Strap st;
-	int tf = 0;
+	Box *box;
+	const char *ev;
+	int tf = 0, nerr = 0;
 	luaL_checkany(L, 1);
-	lua_settop(L, 1);
+	ev = luaL_optstring(L, 2, "__toAMF3");
+	lua_settop(L, 2);
 	lua_newtable(L);
 	lua_newtable(L);
-	initStrap(&st);
-	encodeValue(&st, L, 1, 2, 3, &tf);
-	flushStrap(&st, L);
+	box = newBox(L);
+	if (encodeValue(L, box, 1, ev, 3, 4, &tf, &nerr)) {
+		lua_concat(L, nerr);
+		return luaL_argerror(L, 1, lua_tostring(L, -1));
+	}
+	lua_pushlstring(L, box->buf, box->pos);
 	return 1;
 }

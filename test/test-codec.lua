@@ -1,14 +1,7 @@
---
--- Copyright (C) 2012-2016 Arseny Vakhrushev <arseny.vakhrushev at gmail dot com>
--- Please read the LICENSE file for license details
---
-
-math.randomseed(os.time())
-
 local amf3 = require 'amf3'
-
 local amf3_encode = amf3.encode
 local amf3_decode = amf3.decode
+local amf3_null = amf3.null
 
 local error = error
 local pairs = pairs
@@ -19,20 +12,29 @@ local io_flush = io.flush
 local io_write = io.write
 local math_random = math.random
 local string_char = string.char
+local table_concat = table.concat
 local table_insert = table.insert
 
+local function copy(t)
+	local r = {}
+	for k, v in pairs(t) do
+		r[k] = v
+	end
+	return r
+end
 
+local mt = { __toAMF3 = function (t) return copy(t) end }
 local vals = {
-	function () return nil end, -- Null
+	function () return amf3_null end, -- Null
 	function () return math_random() < 0.5 end, -- Boolean
 	function () return math_random(-268435456, 268435455) end, -- Integer
 	function () return (math_random() - 0.5) * 1234567890 end, -- Double
 	function () -- String
 		local t = {}
 		for i = 1, math_random(0, 10) do
-			t[i] = math_random(0, 255)
+			t[i] = string_char(math_random(0, 255))
 		end
-		return string_char(unpack(t))
+		return table_concat(t)
 	end,
 }
 local refs, any
@@ -42,18 +44,19 @@ local objs = {
 		return n > 0 and refs[math_random(n)] or nil
 	end,
 	function (d) -- Array
-		local t = {}
-		for i = 1, math_random(0, 10) do
+		local n = math_random(0, 10)
+		local t = setmetatable({__array = n}, mt)
+		for i = 1, n do
 			local v = any(d + 1)
 			if v ~= nil then
-				table_insert(t, v)
+				t[i] = v
 			end
 		end
 		table_insert(refs, t)
 		return t
 	end,
 	function (d) -- Object
-		local t = {}
+		local t = setmetatable({}, mt)
 		for i = 1, math_random(0, 10) do
 			local k = vals[5]() -- Random string key
 			local v = any(d + 1)
@@ -65,7 +68,7 @@ local objs = {
 		return t
 	end,
 	function (d) -- Dictionary
-		local t = {}
+		local t = setmetatable({}, mt)
 		for i = 1, math_random(0, 10) do
 			local k = any(d + 1)
 			local v = any(d + 1)
@@ -77,7 +80,8 @@ local objs = {
 		return t
 	end,
 }
-any = function (d)
+
+function any(d)
 	if d < 4 and math_random() < 0.7 then
 		return objs[math_random(#objs)](d)
 	end
@@ -95,12 +99,18 @@ local function compare(v1, v2)
 		if type(v1) ~= 'table' or type(v2) ~= 'table' then
 			return v1 == v2
 		end
+		if v1 == v2  then
+			return true
+		end
+		if not compare(getmetatable(v1), getmetatable(v2)) then
+			return false
+		end
 		if r[v1] and r[v2] then
 			return true
 		end
 		r[v1] = true
 		r[v2] = true
-		local function search(t, xk, xv)
+		local function find(t, xk, xv)
 			if t[xk] == xv then
 				return true
 			end
@@ -111,12 +121,12 @@ local function compare(v1, v2)
 			end
 		end
 		for k, v in pairs(v1) do
-			if not search(v2, k, v) then
+			if not find(v2, k, v) then
 				return false
 			end
 		end
 		for k, v in pairs(v2) do
-			if not search(v1, k, v) then
+			if not find(v1, k, v) then
 				return false
 			end
 		end
@@ -127,68 +137,26 @@ local function compare(v1, v2)
 	return compare(v1, v2)
 end
 
-local function stdout(...)
-	io_write(...)
-	io_flush()
+local function handler(t)
+	return setmetatable(t, mt)
 end
 
-local function printf(fmt, ...)
-	print(fmt:format(...))
-end
-
-local function check(cond)
-	if not cond then
-		stdout '\n'
-		error('check failed!', 2)
-	end
-end
+math.randomseed(os.time())
 
 
 -- Stress test
 
-local total = 0
-local cnt = 0
-local max = 0
-local sizes = {}
+for i = 1, 1000 do
+	local obj = spawn()
+	local str = amf3_encode(obj)
+	local obj_, pos = amf3_decode(str, 1, handler)
+	assert(compare(obj, obj_))
+	assert(pos == #str + 1)
 
-for i = 1, 50 do
-	for j = 1, 20 do
-		local obj = spawn()
-		local str = amf3_encode(obj)
-		local size = #str
-		local _obj, _size = amf3_decode(str)
-		check(size == _size)
-		check(compare(obj, _obj))
-		total = total + size
-		cnt = cnt + 1
-		if max < size then
-			max = size
-		end
-		table_insert(sizes, size)
-
-		-- Additional decoder's robustness test
-		for pos = 1, size - 1 do
-			pcall(amf3_decode, str, pos)
-		end
+	-- Additional decoder's robustness test
+	for pos = 2, pos do
+		pcall(amf3_decode, str, pos)
 	end
-	stdout '.'
-end
-stdout '\n'
-
-printf('Processed %d bytes in %d chunks', total, cnt)
-printf('Max chunk size: %d bytes', max)
-print 'Size distribution:'
-print '% of max size\t% of chunks'
-for i = 1, 10 do
-	local a = (i - 1) / 10 * max
-	local b = i / 10 * max
-	local c = 0
-	for _, size in ipairs(sizes) do
-		if size > a and size <= b then
-			c = c + 1
-		end
-	end
-	printf('%2d...%d \t%5.1f', (i - 1) * 10, i * 10, c / cnt * 100)
 end
 
 
@@ -228,9 +196,9 @@ local strs = {
 				0x03, 0x46, 0x02, 0x03, 0x46, 0x03, -- Dynamic members: F:false, F:true (should reset the key)
 				0x01, -- End of dymanic part
 			0x0a, 0x07, 0x07, 0x44, 0x45, 0x46, -- Externalizable class DEF
-				0x02, -- _data:false
+				0x02, -- __data:false
 			0x0a, 0x05, -- Object (class reference 1)
-				0x03, -- _data:true
+				0x03, -- __data:true
 			0x0a, 0x02, -- Object (reference 1)
 			0x0a, 0x04, -- Object (reference 2)
 			0x0a, 0x06, -- Object (reference 3)
@@ -252,39 +220,36 @@ local strs = {
 	string_char(
 		0x09, 0x05, 0x01, -- Array (length 2)
 			0x11, 0x09, 0x00, -- Dictionary (length 4)
-				0x09, 0x01, 0x01, 0x02, -- {} => false
-				0x02, 0x09, 0x04, -- false => {}
-				0x09, 0x04, 0x03, -- {} => true (should reset the key)
-				0x01, 0x03, -- null => true (should be skipped)
+				0x0a, 0x0b, 0x01, 0x01, 0x02, -- {} => false
+				0x02, 0x0a, 0x04, -- false => {}
+				0x0a, 0x04, 0x03, -- {} => true (should reset the key)
+				0x00, 0x03, -- undefined => true (should be skipped)
 			0x11, 0x02 -- Dictionary (reference 1)
 	),
 }
 
 local ba = string_char(0x11, 0x22, 0x33)
-local ma = { A = 2, B = 1, [1] = false, [2] = true, [3] = 0 }
-local o1 = { A = 1, B = 2, C = 3, D = 4, E = 5, _class = 'ABC' }
-local o2 = { A = nil, B = false, C = true, F = true, _class = 'ABC' }
-local o3 = { _data = false, _class = 'DEF' }
-local o4 = { _data = true, _class = 'DEF' }
-local vi = { 66051, -1 }
-local vu = { 66051, 4294967295 }
-local vd = { 0.1, 0.2 }
-local vo = { false, true, 0 }
-local di = { [{}] = true, [false] = {} }
+local ma = {A = 2, B = 1, [1] = false, [2] = true, [3] = 0}
+local o1 = {A = 1, B = 2, C = 3, D = 4, E = 5, __class = 'ABC'}
+local o2 = {A = amf3_null, B = false, C = true, F = true, __class = 'ABC'}
+local o3 = {__data = false, __class = 'DEF'}
+local o4 = {__data = true, __class = 'DEF'}
+local vi = {66051, -1}
+local vu = {66051, 4294967295}
+local vd = {0.1, 0.2}
+local vo = {false, true, 0}
+local di = {[{}] = true, [false] = {}}
 local objs = {
-	{ 0.1, 'ABC', 'DEF', ba, 0.1, 'ABC', 'DEF', ba },
-	{ ma, ma },
-	{ o1, o2, o3, o4, o1, o2, o3, o4 },
-	{ vi, vu, vd, vo, vi, vu, vd, vo },
-	{ di, di },
+	{__array = 8, 0.1, 'ABC', 'DEF', ba, 0.1, 'ABC', 'DEF', ba},
+	{__array = 2, ma, ma},
+	{__array = 8, o1, o2, o3, o4, o1, o2, o3, o4},
+	{__array = 8, vi, vu, vd, vo, vi, vu, vd, vo},
+	{__array = 2, di, di},
 }
 
 for i = 1, #strs do
 	local str, obj = strs[i], objs[i]
-	local size = #str
-	local _obj, _size = amf3_decode(str)
-	check(size == _size)
-	check(compare(obj, _obj))
+	local obj_, pos = amf3_decode(str)
+	assert(compare(obj, obj_))
+	assert(pos == #str + 1)
 end
-
-print 'Test completed!'
