@@ -31,9 +31,11 @@
 EXPORT int luaopen_amf3(lua_State *L);
 
 static const luaL_Reg funcs[] = {
-	{ "encode", amf3_encode },
-	{ "decode", amf3_decode },
-	{ 0, 0 }
+	{"encode", amf3_encode},
+	{"decode", amf3_decode},
+	{"pack", amf3_pack},
+	{"unpack", amf3_unpack},
+	{0, 0}
 };
 
 int luaopen_amf3(lua_State *L) {

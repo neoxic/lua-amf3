@@ -23,69 +23,79 @@
 #include <string.h>
 #include "amf3.h"
 
-static size_t decodeU8(lua_State *L, const char *buf, size_t pos, size_t size, int *val) {
-	if (pos >= size) luaL_error(L, "insufficient U8 data at position %d", pos + 1);
+static size_t decodeByte(lua_State *L, const char *buf, size_t pos, size_t size, int *val) {
+	if (pos >= size) luaL_error(L, "insufficient data at position %d", pos + 1);
 	*val = buf[pos] & 0xff;
 	return pos + 1;
 }
 
 static size_t decodeU29(lua_State *L, const char *buf, size_t pos, size_t size, int *val) {
-	int len = 0, n = 0;
+	int len = 0, x = 0;
 	unsigned char c;
 	buf += pos;
 	do {
 		if (pos + len >= size) luaL_error(L, "insufficient U29 data at position %d", pos + 1);
 		c = buf[len++];
 		if (len == 4) {
-			n <<= 8;
-			n |= c;
+			x <<= 8;
+			x |= c;
 			break;
 		}
-		n <<= 7;
-		n |= c & 0x7f;
+		x <<= 7;
+		x |= c & 0x7f;
 	} while (c & 0x80);
-	*val = n;
+	*val = x;
 	return pos + len;
 }
 
 static size_t decodeInteger(lua_State *L, const char *buf, size_t pos, size_t size) {
-	int n;
-	pos = decodeU29(L, buf, pos, size, &n);
-	if (n & 0x10000000) n -= 0x20000000;
-	lua_pushinteger(L, n);
+	int val;
+	pos = decodeU29(L, buf, pos, size, &val);
+	if (val & 0x10000000) val -= 0x20000000;
+	lua_pushinteger(L, val);
 	return pos;
 }
 
-static size_t decodeU32(lua_State *L, const char *buf, size_t pos, size_t size, int sign) {
-	union { int n; char c; } t;
-	union { unsigned n; char c[4]; } u;
-	double n;
+static size_t decodeU32(lua_State *L, const char *buf, size_t pos, size_t size, unsigned *val) {
+	union { int i; char c; } t;
+	union { unsigned u; char c[4]; } u;
 	if (pos + 4 > size) luaL_error(L, "insufficient U32 data at position %d", pos + 1);
 	buf += pos;
-	t.n = 1;
+	t.i = 1;
 	if (!t.c) memcpy(u.c, buf, 4);
 	else { /* Little-endian machine */
 		int i;
 		for (i = 0; i < 4; ++i) u.c[i] = buf[3 - i];
 	}
-	if (sign) n = (signed)u.n;
-	else n = u.n;
-	lua_pushnumber(L, n);
+	*val = u.u;
 	return pos + 4;
 }
 
+static size_t decodeInt32(lua_State *L, const char *buf, size_t pos, size_t size, int sign) {
+	unsigned val;
+	pos = decodeU32(L, buf, pos, size, &val);
+	if (sign) lua_pushinteger(L, (signed)val);
+	else {
+		lua_Number n = val;
+		lua_Integer i = (lua_Integer)n;
+		if (i == n) lua_pushinteger(L, i);
+		else lua_pushnumber(L, n);
+	}
+	return pos;
+}
+
 static size_t decodeDouble(lua_State *L, const char *buf, size_t pos, size_t size) {
-	union { int n; char c; } t;
-	union { double n; char c[8]; } u;
+	union { int i; char c; } t;
+	union { double d; char c[8]; } u;
 	if (pos + 8 > size) luaL_error(L, "insufficient IEEE-754 data at position %d", pos + 1);
 	buf += pos;
-	t.n = 1;
+	t.i = 1;
 	if (!t.c) memcpy(u.c, buf, 8);
 	else { /* Little-endian machine */
 		int i;
 		for (i = 0; i < 8; ++i) u.c[i] = buf[7 - i];
 	}
-	lua_pushnumber(L, u.n);
+	lua_pushnumber(L, u.d);
 	return pos + 8;
 }
 
@@ -94,142 +104,134 @@ static size_t decodeRef(lua_State *L, const char *buf, size_t pos, size_t size, 
 	pos = decodeU29(L, buf, pos, size, &pfx);
 	def = pfx & 1;
 	pfx >>= 1;
-	if (def) *val = pfx;
-	else {
-		*val = -1;
-		lua_rawgeti(L, ridx, pfx + 1);
-		if (lua_isnil(L, -1)) luaL_error(L, "invalid reference %d at position %d", pfx, _pos + 1);
+	if (def) {
+		*val = pfx;
+		return pos;
 	}
+	*val = -1;
+	lua_rawgeti(L, ridx, pfx + 1);
+	if (lua_isnil(L, -1)) luaL_error(L, "invalid reference %d at position %d", pfx, _pos + 1);
 	return pos;
 }
 
 static size_t decodeString(lua_State *L, const char *buf, size_t pos, size_t size, int ridx, int blob) {
-	int len, _pos = pos;
+	int len;
 	pos = decodeRef(L, buf, pos, size, ridx, &len);
-	if (len != -1) {
-		if (pos + len > size) luaL_error(L, "invalid length %d at position %d", len, _pos + 1);
-		buf += pos;
-		pos += len;
-		lua_pushlstring(L, buf, len);
-		if (blob || len) { /* Empty string is never sent by reference */
-			lua_pushvalue(L, -1);
-			luaL_ref(L, ridx);
-		}
+	if (len == -1) return pos;
+	if (pos + len > size) luaL_error(L, "insufficient data of length %d at position %d", len, pos + 1);
+	lua_pushlstring(L, buf + pos, len);
+	if (blob || len) { /* Empty string is never sent by reference */
+		lua_pushvalue(L, -1);
+		luaL_ref(L, ridx);
 	}
-	return pos;
+	return pos + len;
 }
 
 static size_t decodeDate(lua_State *L, const char *buf, size_t pos, size_t size, int ridx) {
 	int pfx;
 	pos = decodeRef(L, buf, pos, size, ridx, &pfx);
-	if (pfx != -1) {
-		pos = decodeDouble(L, buf, pos, size);
-		lua_pushvalue(L, -1);
-		luaL_ref(L, ridx);
-	}
+	if (pfx == -1) return pos;
+	pos = decodeDouble(L, buf, pos, size);
+	lua_pushvalue(L, -1);
+	luaL_ref(L, ridx);
 	return pos;
 }
 
 static size_t decodeValue(lua_State *L, const char *buf, size_t pos, size_t size, int hidx, int sidx, int oidx, int tidx);
 
 static size_t decodeArray(lua_State *L, const char *buf, size_t pos, size_t size, int hidx, int sidx, int oidx, int tidx) {
-	int len;
+	int len, i;
 	pos = decodeRef(L, buf, pos, size, oidx, &len);
-	if (len != -1) {
-		int i;
-		lua_newtable(L);
-		lua_pushvalue(L, -1);
-		luaL_ref(L, oidx);
-		checkStack(L);
-		for (;;) { /* Associative part */
-			pos = decodeString(L, buf, pos, size, sidx, 0);
-			if (!lua_rawlen(L, -1)) {
-				lua_pop(L, 1);
-				break;
-			}
-			pos = decodeValue(L, buf, pos, size, hidx, sidx, oidx, tidx);
-			lua_rawset(L, -3);
+	if (len == -1) return pos;
+	lua_newtable(L);
+	lua_pushvalue(L, -1);
+	luaL_ref(L, oidx);
+	checkStack(L);
+	for (;;) { /* Associative part */
+		pos = decodeString(L, buf, pos, size, sidx, 0);
+		if (!lua_rawlen(L, -1)) {
+			lua_pop(L, 1);
+			break;
 		}
-		lua_pushnil(L);
-		if (lua_next(L, -2)) lua_pop(L, 2);
-		else { /* Restore array length */
-			lua_pushinteger(L, len);
-			lua_setfield(L, -2, "__array");
-		}
-		for (i = 0; i < len; ++i) { /* Dense part */
-			pos = decodeValue(L, buf, pos, size, hidx, sidx, oidx, tidx);
-			lua_rawseti(L, -2, i + 1);
-		}
+		pos = decodeValue(L, buf, pos, size, hidx, sidx, oidx, tidx);
+		lua_rawset(L, -3);
+	}
+	lua_pushnil(L);
+	if (lua_next(L, -2)) lua_pop(L, 2);
+	else { /* Restore array length */
+		lua_pushinteger(L, len);
+		lua_setfield(L, -2, "__array");
+	}
+	for (i = 0; i < len; ++i) { /* Dense part */
+		pos = decodeValue(L, buf, pos, size, hidx, sidx, oidx, tidx);
+		lua_rawseti(L, -2, i + 1);
 	}
 	return pos;
 }
 
 static size_t decodeObject(lua_State *L, const char *buf, size_t pos, size_t size, int hidx, int sidx, int oidx, int tidx) {
-	int pfx, _pos = pos;
+	int pfx, def, i, n, _pos = pos;
 	pos = decodeRef(L, buf, pos, size, oidx, &pfx);
-	if (pfx != -1) {
-		int def = pfx & 1;
-		pfx >>= 1;
-		if (def) { /* New traits */
-			int i, n;
-			lua_newtable(L);
-			lua_pushvalue(L, -1);
-			luaL_ref(L, tidx);
-			lua_pushinteger(L, pfx);
-			lua_rawseti(L, -2, 1);
-			pos = decodeString(L, buf, pos, size, sidx, 0); /* Class name */
-			lua_rawseti(L, -2, 2);
-			for (i = 0, n = pfx >> 2; i < n; ++i) { /* Static member names */
-				pos = decodeString(L, buf, pos, size, sidx, 0);
-				lua_rawseti(L, -2, i + 3);
-			}
-		} else { /* Existing traits */
-			lua_rawgeti(L, tidx, pfx + 1);
-			if (lua_isnil(L, -1)) luaL_error(L, "invalid class reference %d at position %d", pfx, _pos + 1);
-			lua_rawgeti(L, -1, 1);
-			pfx = lua_tointeger(L, -1);
-			lua_pop(L, 1);
-		}
+	if (pfx == -1) return pos;
+	def = pfx & 1;
+	pfx >>= 1;
+	if (def) { /* New traits */
 		lua_newtable(L);
 		lua_pushvalue(L, -1);
-		luaL_ref(L, oidx);
-		checkStack(L);
-		if (pfx & 1) { /* Externalizable */
+		luaL_ref(L, tidx);
+		lua_pushinteger(L, pfx);
+		lua_rawseti(L, -2, 1);
+		pos = decodeString(L, buf, pos, size, sidx, 0); /* Class name */
+		lua_rawseti(L, -2, 2);
+		for (i = 0, n = pfx >> 2; i < n; ++i) { /* Static member names */
+			pos = decodeString(L, buf, pos, size, sidx, 0);
+			lua_rawseti(L, -2, i + 3);
+		}
+	} else { /* Existing traits */
+		lua_rawgeti(L, tidx, pfx + 1);
+		if (lua_isnil(L, -1)) luaL_error(L, "invalid class reference %d at position %d", pfx, _pos + 1);
+		lua_rawgeti(L, -1, 1);
+		pfx = lua_tointeger(L, -1);
+		lua_pop(L, 1);
+	}
+	lua_newtable(L);
+	lua_pushvalue(L, -1);
+	luaL_ref(L, oidx);
+	checkStack(L);
+	if (pfx & 1) { /* Externalizable */
+		pos = decodeValue(L, buf, pos, size, hidx, sidx, oidx, tidx);
+		lua_setfield(L, -2, "__data");
+	} else {
+		for (i = 0, n = pfx >> 2; i < n; ++i) {
+			lua_rawgeti(L, -2, i + 3);
 			pos = decodeValue(L, buf, pos, size, hidx, sidx, oidx, tidx);
-			lua_setfield(L, -2, "__data");
-		} else {
-			int i, n;
-			for (i = 0, n = pfx >> 2; i < n; ++i) {
-				lua_rawgeti(L, -2, i + 3);
+			lua_rawset(L, -3);
+		}
+		if (pfx & 2) { /* Dynamic */
+			for (;;) {
+				pos = decodeString(L, buf, pos, size, sidx, 0);
+				if (!lua_rawlen(L, -1)) {
+					lua_pop(L, 1);
+					break;
+				}
 				pos = decodeValue(L, buf, pos, size, hidx, sidx, oidx, tidx);
 				lua_rawset(L, -3);
 			}
-			if (pfx & 2) { /* Dynamic */
-				for (;;) {
-					pos = decodeString(L, buf, pos, size, sidx, 0);
-					if (!lua_rawlen(L, -1)) {
-						lua_pop(L, 1);
-						break;
-					}
-					pos = decodeValue(L, buf, pos, size, hidx, sidx, oidx, tidx);
-					lua_rawset(L, -3);
-				}
-			}
 		}
-		lua_rawgeti(L, -2, 2);
-		if (lua_rawlen(L, -1)) lua_setfield(L, -2, "__class");
-		else lua_pop(L, 1);
-		lua_remove(L, -2);
 	}
+	lua_rawgeti(L, -2, 2);
+	if (lua_rawlen(L, -1)) lua_setfield(L, -2, "__class");
+	else lua_pop(L, 1);
+	lua_remove(L, -2);
 	return pos;
 }
 
 static size_t decodeVectorItem(lua_State *L, const char *buf, size_t pos, size_t size, int hidx, int sidx, int oidx, int tidx, int type) {
 	switch (type) {
 		case AMF3_VECTOR_INT:
-			return decodeU32(L, buf, pos, size, 1);
+			return decodeInt32(L, buf, pos, size, 1);
 		case AMF3_VECTOR_UINT:
-			return decodeU32(L, buf, pos, size, 0);
+			return decodeInt32(L, buf, pos, size, 0);
 		case AMF3_VECTOR_DOUBLE:
 			return decodeDouble(L, buf, pos, size);
 		default:
@@ -238,50 +240,46 @@ static size_t decodeVectorItem(lua_State *L, const char *buf, size_t pos, size_t
 }
 
 static size_t decodeVector(lua_State *L, const char *buf, size_t pos, size_t size, int hidx, int sidx, int oidx, int tidx, int type) {
-	int len;
+	int len, i;
 	pos = decodeRef(L, buf, pos, size, oidx, &len);
-	if (len != -1) {
-		int i;
-		pos = decodeU8(L, buf, pos, size, &i); /* 'fixed-vector' marker */
-		if (type == AMF3_VECTOR_OBJECT) { /* 'object-type-name' marker */
-			pos = decodeString(L, buf, pos, size, sidx, 0);
-			lua_pop(L, 1);
-		}
-		lua_newtable(L);
-		lua_pushvalue(L, -1);
-		luaL_ref(L, oidx);
-		checkStack(L);
-		for (i = 0; i < len; ++i) {
-			pos = decodeVectorItem(L, buf, pos, size, hidx, sidx, oidx, tidx, type);
-			lua_rawseti(L, -2, i + 1);
-		}
+	if (len == -1) return pos;
+	pos = decodeByte(L, buf, pos, size, &i); /* 'fixed-vector' marker */
+	if (type == AMF3_VECTOR_OBJECT) { /* 'object-type-name' marker */
+		pos = decodeString(L, buf, pos, size, sidx, 0);
+		lua_pop(L, 1);
+	}
+	lua_newtable(L);
+	lua_pushvalue(L, -1);
+	luaL_ref(L, oidx);
+	checkStack(L);
+	for (i = 0; i < len; ++i) {
+		pos = decodeVectorItem(L, buf, pos, size, hidx, sidx, oidx, tidx, type);
+		lua_rawseti(L, -2, i + 1);
 	}
 	return pos;
 }
 
 static size_t decodeDictionary(lua_State *L, const char *buf, size_t pos, size_t size, int hidx, int sidx, int oidx, int tidx) {
-	int len;
+	int len, i;
 	pos = decodeRef(L, buf, pos, size, oidx, &len);
-	if (len != -1) {
-		int i;
-		pos = decodeU8(L, buf, pos, size, &i); /* 'weak-keys' marker */
-		lua_newtable(L);
-		lua_pushvalue(L, -1);
-		luaL_ref(L, oidx);
-		checkStack(L);
-		while (len--) {
-			pos = decodeValue(L, buf, pos, size, hidx, sidx, oidx, tidx);
-			pos = decodeValue(L, buf, pos, size, hidx, sidx, oidx, tidx);
-			if (!lua_isnil(L, -2)) lua_rawset(L, -3);
-			else lua_pop(L, 2);
-		}
+	if (len == -1) return pos;
+	pos = decodeByte(L, buf, pos, size, &i); /* 'weak-keys' marker */
+	lua_newtable(L);
+	lua_pushvalue(L, -1);
+	luaL_ref(L, oidx);
+	checkStack(L);
+	while (len--) {
+		pos = decodeValue(L, buf, pos, size, hidx, sidx, oidx, tidx);
+		pos = decodeValue(L, buf, pos, size, hidx, sidx, oidx, tidx);
+		if (!lua_isnil(L, -2)) lua_rawset(L, -3);
+		else lua_pop(L, 2);
 	}
 	return pos;
 }
 
 static size_t decodeValueData(lua_State *L, const char *buf, size_t pos, size_t size, int hidx, int sidx, int oidx, int tidx) {
 	int type, _pos = pos;
-	pos = decodeU8(L, buf, pos, size, &type);
+	pos = decodeByte(L, buf, pos, size, &type);
 	switch (type) {
 		case AMF3_UNDEFINED:
 			lua_pushnil(L);
@@ -338,11 +336,51 @@ int amf3_decode(lua_State *L) {
 	size_t size;
 	const char *buf = luaL_checklstring(L, 1, &size);
 	size_t pos = luaL_optinteger(L, 2, 1) - 1;
-	luaL_argcheck(L, pos <= size, 2, "value out of range");
+	checkRange(L, pos <= size, 2);
 	lua_settop(L, 3);
 	lua_newtable(L);
 	lua_newtable(L);
 	lua_newtable(L);
 	lua_pushinteger(L, decodeValue(L, buf, pos, size, 3, 4, 5, 6) + 1);
 	return 2;
+}
+
+int amf3_unpack(lua_State *L) {
+	const char *fmt = luaL_checkstring(L, 1);
+	size_t size;
+	const char *buf = luaL_checklstring(L, 2, &size);
+	size_t pos = luaL_optinteger(L, 3, 1) - 1;
+	int nres, opt;
+	checkRange(L, pos <= size, 3);
+	for (nres = 0; (opt = *fmt++); ++nres) {
+		switch (opt) {
+			case 'b': {
+				int val;
+				pos = decodeByte(L, buf, pos, size, &val);
+				lua_pushinteger(L, val);
+				break;
+			}
+			case 'i':
+				pos = decodeInteger(L, buf, pos, size);
+				break;
+			case 'I':
+				pos = decodeInt32(L, buf, pos, size, 1);
+				break;
+			case 'S': {
+				unsigned len;
+				pos = decodeU32(L, buf, pos, size, &len);
+				if (pos + len > size) luaL_error(L, "insufficient data of length %d at position %d", len, pos + 1);
+				lua_pushlstring(L, buf + pos, len);
+				pos += len;
+				break;
+			}
+			case 'd':
+				pos = decodeDouble(L, buf, pos, size);
+				break;
+			default:
+				return luaL_error(L, "invalid format option '%c'", opt);
+		}
+	}
+	lua_pushinteger(L, pos);
+	return nres + 1;
 }

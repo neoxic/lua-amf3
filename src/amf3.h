@@ -46,10 +46,12 @@
 #define AMF3_VECTOR_OBJECT 0x10
 #define AMF3_DICTIONARY    0x11
 
-#define AMF3_MAX_INT  268435455
-#define AMF3_MIN_INT -268435456
+#define AMF3_INT_MAX  268435455
+#define AMF3_INT_MIN -268435456
+#define AMF3_U29_MAX (AMF3_INT_MAX - AMF3_INT_MIN)
 
 #define checkStack(L) luaL_checkstack(L, LUA_MINSTACK, "too many nested values")
+#define checkRange(L, cond, arg) luaL_argcheck(L, cond, arg, "value out of range")
 
 #if LUA_VERSION_NUM < 502
 #define lua_rawlen(L, idx) lua_objlen(L, idx)
@@ -57,3 +59,6 @@
 
 int amf3_encode(lua_State *L);
 int amf3_decode(lua_State *L);
+
+int amf3_pack(lua_State *L);
+int amf3_unpack(lua_State *L);

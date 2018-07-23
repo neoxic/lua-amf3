@@ -23,7 +23,7 @@ local function copy(t)
 	return r
 end
 
-local mt = { __toAMF3 = function (t) return copy(t) end }
+local mt = {__toAMF3 = function (t) return copy(t) end}
 local vals = {
 	function () return amf3_null end, -- Null
 	function () return math_random() < 0.5 end, -- Boolean
@@ -41,16 +41,13 @@ local refs, any
 local objs = {
 	function () -- Reference
 		local n = #refs
-		return n > 0 and refs[math_random(n)] or nil
+		return n > 0 and refs[math_random(n)] or amf3_null
 	end,
 	function (d) -- Array
 		local n = math_random(0, 10)
 		local t = setmetatable({__array = n}, mt)
 		for i = 1, n do
-			local v = any(d + 1)
-			if v ~= nil then
-				t[i] = v
-			end
+			t[i] = any(d + 1)
 		end
 		table_insert(refs, t)
 		return t
@@ -59,9 +56,8 @@ local objs = {
 		local t = setmetatable({}, mt)
 		for i = 1, math_random(0, 10) do
 			local k = vals[5]() -- Random string key
-			local v = any(d + 1)
-			if #k > 0 and v ~= nil then
-				t[k] = v
+			if #k > 0 then
+				t[k] = any(d + 1)
 			end
 		end
 		table_insert(refs, t)
@@ -70,11 +66,7 @@ local objs = {
 	function (d) -- Dictionary
 		local t = setmetatable({}, mt)
 		for i = 1, math_random(0, 10) do
-			local k = any(d + 1)
-			local v = any(d + 1)
-			if k ~= nil and v ~= nil then
-				t[k] = v
-			end
+			t[any(d + 1)] = any(d + 1)
 		end
 		table_insert(refs, t)
 		return t

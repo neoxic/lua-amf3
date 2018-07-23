@@ -3,25 +3,37 @@ AMF3 encoding/decoding library for Lua
 
 [lua-amf3] provides the following API:
 
-### amf3.null
-A Lua value that represents the `AMF3 Null` type.
-
 ### amf3.encode(value, [event])
-- Encodes `value` into an AMF3 representation and returns it as a string.
-- Optional `event` may be used to override the default encoding event name `__toAMF3` that triggers
-  a metamethod every time a value (root or nested) is encoded. The value returned by the metamethod
-  is used instead of the original value.
+- Returns a binary string containing an AMF3 representation of `value`.
+- Optional `event` may be used to specify a metamethod name (default is `__toAMF3`) to be called for
+  every processed value. The value returned by the metamethod is used instead of the original value.
 - A table (root or nested) is encoded into a dense array if it has an `__array` field whose value is
   neither `nil` nor `false`. The length of the resulting array can be adjusted by storing an integer
   value in the `__array` field. Otherwise, it is assumed to be equal to the raw length of the table.
 
 ### amf3.decode(data, [pos], [handler])
-- Decodes `data` into a Lua value and returns it along with the index of the first unread byte.
+- Returns the value encoded in `data` along with the index of the first unread byte.
 - Optional `pos` marks where to start reading in `data` (default is 1).
 - Optional `handler` is called for each new table (root or nested), and its return value is used
   instead of the original table.
-- The `AMF3 Object` type is decoded into a table with optional `__class` (class name) and `__data`
+- The `AMF3 Object` type is converted into a table with optional `__class` (class name) and `__data`
   (externalizable object's data) fields.
+
+### amf3.pack(fmt, ...)
+
+### amf3.unpack(fmt, data, [pos])
+
+### amf3.null
+A Lua value that represents the `AMF3 Null` type.
+
+
+Code example
+------------
+
+```Lua
+local amf3 = require 'amf3'
+-- TODO
+```
 
 
 Building and installing with LuaRocks
