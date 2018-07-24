@@ -366,6 +366,17 @@ int amf3_unpack(lua_State *L) {
 			case 'I':
 				pos = decodeInt32(L, buf, pos, size, 1);
 				break;
+			case 'd':
+				pos = decodeDouble(L, buf, pos, size);
+				break;
+			case 's': {
+				int len;
+				pos = decodeU29(L, buf, pos, size, &len);
+				if (pos + len > size) luaL_error(L, "insufficient data of length %d at position %d", len, pos + 1);
+				lua_pushlstring(L, buf + pos, len);
+				pos += len;
+				break;
+			}
 			case 'S': {
 				unsigned len;
 				pos = decodeU32(L, buf, pos, size, &len);
@@ -374,9 +385,6 @@ int amf3_unpack(lua_State *L) {
 				pos += len;
 				break;
 			}
-			case 'd':
-				pos = decodeDouble(L, buf, pos, size);
-				break;
 			default:
 				return luaL_error(L, "invalid format option '%c'", opt);
 		}

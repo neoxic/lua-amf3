@@ -364,10 +364,13 @@ int amf3_pack(lua_State *L) {
 				encodeU32(L, box, val);
 				break;
 			}
+			case 'd':
+				encodeDouble(L, box, luaL_checknumber(L, arg));
+				break;
 			case 's': {
 				size_t len;
 				const char *str = luaL_checklstring(L, arg, &len);
-				checkRange(L, len <= AMF3_U29_MAX, arg);
+				luaL_argcheck(L, len <= AMF3_U29_MAX, arg, "string too long");
 				encodeU29(L, box, len);
 				encodeData(L, box, str, len);
 				break;
@@ -375,14 +378,11 @@ int amf3_pack(lua_State *L) {
 			case 'S': {
 				size_t len;
 				const char *str = luaL_checklstring(L, arg, &len);
-				checkRange(L, len <= UINT32_MAX, arg);
+				luaL_argcheck(L, len <= UINT32_MAX, arg, "string too long");
 				encodeU32(L, box, len);
 				encodeData(L, box, str, len);
 				break;
 			}
-			case 'd':
-				encodeDouble(L, box, luaL_checknumber(L, arg));
-				break;
 			default:
 				return luaL_error(L, "invalid format option '%c'", opt);
 		}
