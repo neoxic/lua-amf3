@@ -108,9 +108,9 @@ static size_t decodeRef(lua_State *L, const char *buf, size_t pos, size_t size, 
 		*val = pfx;
 		return pos;
 	}
-	*val = -1;
 	lua_rawgeti(L, ridx, pfx + 1);
 	if (lua_isnil(L, -1)) luaL_error(L, "invalid reference %d at position %d", pfx, _pos + 1);
+	*val = -1;
 	return pos;
 }
 

@@ -41,7 +41,7 @@ local refs, any
 local objs = {
 	function () -- Reference
 		local n = #refs
-		return n > 0 and refs[math_random(n)] or amf3_null
+		return n > 0 and refs[math_random(n)] or nil
 	end,
 	function (d) -- Array
 		local n = math_random(0, 10)
@@ -66,7 +66,10 @@ local objs = {
 	function (d) -- Dictionary
 		local t = setmetatable({}, mt)
 		for i = 1, math_random(0, 10) do
-			t[any(d + 1)] = any(d + 1)
+			local k = any(d + 1)
+			if k ~= nil then
+				t[k] = any(d + 1)
+			end
 		end
 		table_insert(refs, t)
 		return t
