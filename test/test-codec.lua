@@ -1,6 +1,8 @@
 local amf3 = require 'amf3'
 local amf3_encode = amf3.encode
 local amf3_decode = amf3.decode
+local amf3_pack = amf3.pack
+local amf3_unpack = amf3.unpack
 local amf3_null = amf3.null
 
 local error = error
@@ -248,3 +250,25 @@ for i = 1, #strs do
 	assert(compare(obj, obj_))
 	assert(pos == #str + 1)
 end
+
+
+-- Pack/unpack test
+
+local fmt = 'biiuIIUdsSsS'
+local args = {255, -268435456, 268435455, 536870911, -2147483648, 2147483647, 4294967295, -10.2, '', '', 'abc', '1234567890'}
+local unpack = table.unpack or unpack
+local str = amf3_pack(fmt, unpack(args))
+table_insert(args, #str + 1)
+assert(compare(args, {amf3_unpack(fmt, str)}))
+
+-- Range errors
+assert(not pcall(amf3_pack, 'b', -1))
+assert(not pcall(amf3_pack, 'b', 256))
+assert(not pcall(amf3_pack, 'i', -268435457))
+assert(not pcall(amf3_pack, 'i', 268435456))
+assert(not pcall(amf3_pack, 'u', -1))
+assert(not pcall(amf3_pack, 'u', 536870912))
+assert(not pcall(amf3_pack, 'I', -2147483649))
+assert(not pcall(amf3_pack, 'I', 2147483648))
+assert(not pcall(amf3_pack, 'U', -1))
+assert(not pcall(amf3_pack, 'U', 4294967296))

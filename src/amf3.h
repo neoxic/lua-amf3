@@ -46,8 +46,8 @@
 #define AMF3_VECTOR_OBJECT 0x10
 #define AMF3_DICTIONARY    0x11
 
-#define AMF3_INT_MAX  268435455
 #define AMF3_INT_MIN -268435456
+#define AMF3_INT_MAX 268435455
 #define AMF3_U29_MAX (AMF3_INT_MAX - AMF3_INT_MIN)
 
 #define checkStack(L) luaL_checkstack(L, LUA_MINSTACK, "too many nested values")

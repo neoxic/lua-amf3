@@ -360,7 +360,21 @@ int amf3_pack(lua_State *L) {
 			}
 			case 'I': {
 				lua_Integer val = luaL_checkinteger(L, arg);
-				checkRange(L, val >= INT32_MIN && val <= INT32_MAX, arg);
+				lua_Number n = lua_tonumber(L, arg);
+				checkRange(L, n >= INT32_MIN && n <= INT32_MAX, arg);
+				encodeU32(L, box, val);
+				break;
+			}
+			case 'u': {
+				lua_Integer val = luaL_checkinteger(L, arg);
+				checkRange(L, val >= 0 && val <= AMF3_U29_MAX, arg);
+				encodeU29(L, box, val);
+				break;
+			}
+			case 'U': {
+				lua_Integer val = luaL_checkinteger(L, arg);
+				lua_Number n = lua_tonumber(L, arg);
+				checkRange(L, n >= 0 && n <= UINT32_MAX, arg);
 				encodeU32(L, box, val);
 				break;
 			}

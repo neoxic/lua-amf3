@@ -48,10 +48,10 @@ static size_t decodeU29(lua_State *L, const char *buf, size_t pos, size_t size, 
 	return pos + len;
 }
 
-static size_t decodeInteger(lua_State *L, const char *buf, size_t pos, size_t size) {
+static size_t decodeInteger(lua_State *L, const char *buf, size_t pos, size_t size, int sign) {
 	int val;
 	pos = decodeU29(L, buf, pos, size, &val);
-	if (val & 0x10000000) val -= 0x20000000;
+	if (sign && (val & 0x10000000)) val -= 0x20000000;
 	lua_pushinteger(L, val);
 	return pos;
 }
@@ -294,7 +294,7 @@ static size_t decodeValueData(lua_State *L, const char *buf, size_t pos, size_t 
 			lua_pushboolean(L, 1);
 			break;
 		case AMF3_INTEGER:
-			return decodeInteger(L, buf, pos, size);
+			return decodeInteger(L, buf, pos, size, 1);
 		case AMF3_DOUBLE:
 			return decodeDouble(L, buf, pos, size);
 		case AMF3_STRING:
@@ -361,10 +361,16 @@ int amf3_unpack(lua_State *L) {
 				break;
 			}
 			case 'i':
-				pos = decodeInteger(L, buf, pos, size);
+				pos = decodeInteger(L, buf, pos, size, 1);
 				break;
 			case 'I':
 				pos = decodeInt32(L, buf, pos, size, 1);
+				break;
+			case 'u':
+				pos = decodeInteger(L, buf, pos, size, 0);
+				break;
+			case 'U':
+				pos = decodeInt32(L, buf, pos, size, 0);
 				break;
 			case 'd':
 				pos = decodeDouble(L, buf, pos, size);
@@ -389,6 +395,6 @@ int amf3_unpack(lua_State *L) {
 				return luaL_error(L, "invalid format option '%c'", opt);
 		}
 	}
-	lua_pushinteger(L, pos);
+	lua_pushinteger(L, pos + 1);
 	return nres + 1;
 }
