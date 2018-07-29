@@ -42,7 +42,6 @@ All numeric data is stored as big-endian.
 ### amf3.unpack(fmt, data, [pos])
 Returns the values packed in `data` according to the format string `fmt` (see above) along with the
 index of the first unread byte. Optional `pos` marks where to start reading in `data` (default is 1).
-See `amf3.pack` for format string options.
 
 ### amf3.null
 A Lua value that represents the AMF3 Null type.
