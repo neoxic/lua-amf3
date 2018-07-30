@@ -118,7 +118,7 @@ local data = {
     arr1 = {__array = true, 1, 2, 3}, -- A table with an '__array' field translates into an 'Array'
     arr2 = {__array = 5, nil, 2, nil, 4, nil}, -- Array length can be adjusted to form a sparse array
 }
-data[data] = data -- Any circular references are safe
+data[data] = data -- All kinds of circular references are safe
 
 local out = encode_decode(data)
 assert(out[out].obj.str == 'abc') -- Circular references are properly restored
@@ -126,15 +126,13 @@ assert(out.dict[amf3.null] == amf3.null) -- 'Null' as a key or value
 assert(out.arr1.__array == #out.arr1) -- When a purely dense 'Array' is restored ...
 assert(out.arr2.__array == 5) -- ... its '__array' field contains the original length
 
--- Packing/unpacking multiple values using AMF3-based numeric formats
+-- Packing/unpacking values using AMF3-compatible numeric formats
 local b, i, d, s = pack_unpack('bids', 123, 123456, -1.2, 'abc')
-
--- Advanced techniques
 
 -- Serialization metamethods can be used to produce multiple AMF3 representations of the same object.
 -- Deserialization handlers can be used to restore Lua objects from complex AMF3 types on the way back.
--- This is helpful, for instance, when objects are exchanged with both trusted and untrusted parties.
--- Various data filters/wrappers can also be implemented using this API.
+-- This is helpful, for example, when objects are exchanged with both trusted and untrusted parties.
+-- Various custom filters/wrappers can also be implemented using this API.
 
 local function construct(t)
     return setmetatable(t, {
