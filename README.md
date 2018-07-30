@@ -86,7 +86,7 @@ Getting started
 local amf3 = require 'amf3'
 
 -- Helpers
-local function encode_decode(val, h, ev)
+local function encode_decode(val, ev, h)
     return amf3.decode(amf3.encode(val, ev), 1, h)
 end
 local function pack_unpack(fmt, ...)
@@ -100,7 +100,7 @@ assert(encode_decode(false) == false)
 assert(encode_decode(true) == true)
 assert(encode_decode(123) == 123)
 assert(encode_decode(123.456) == 123.456)
-assert(encode_decode('Hello!') == 'Hello!')
+assert(encode_decode('abc') == 'abc')
 
 -- Complex types
 local data = {
@@ -126,41 +126,31 @@ assert(out.dict[amf3.null] == amf3.null) -- 'Null' as a key or value
 assert(out.arr1.__array == #out.arr1) -- When a purely dense 'Array' is restored ...
 assert(out.arr2.__array == 5) -- ... its '__array' field contains the original length
 
--- Packing/unpacking
-print(pack_unpack('bids', 123, 123456, -1.2, 'abc')) -- "123 123456 -1.2 abc 17"
+-- Packing/unpacking multiple values using AMF3-based numeric formats
+local b, i, d, s = pack_unpack('bids', 123, 123456, -1.2, 'abc')
 
+-- Advanced techniques
 
--- Advanced serialization/deserialization API allows to have multiple AMF3 representations (views)
--- of the same underlying object using transformation handlers. This is helpful, for instance, when
--- objects are sent to (received from) both trusted (internal) and untrusted (external) parties.
+-- Serialization metamethods can be used to produce multiple AMF3 representations of the same object.
+-- Deserialization handlers can be used to restore Lua objects from complex AMF3 types on the way back.
+-- This is helpful, for instance, when objects are exchanged with both trusted and untrusted parties.
+-- Various data filters/wrappers can also be implemented using this API.
 
--- Metatable
-local mt = {
-    __toAMF3 = function (t) return {A = t.a} end, -- Default event handler [a -> A]
-    __myEvent = function (t) return {B = t.b} end, -- Custom event handler [b -> B]
-    __tostring = function (t) return (t.a or '') .. (t.b or '') end
-}
-
--- Constructor
 local function construct(t)
-    return setmetatable(t, mt)
+    return setmetatable(t, {
+        __tostring = function (t) return (t.a or '') .. (t.b or '') end,
+        __toA = function (t) return {A = t.a} end, -- [a -> A]
+        __toB = function (t) return {B = t.b} end, -- [b -> B]
+    })
 end
 
--- Reverse handlers
-local function hA(t) return construct{a = t.A} end -- [A -> a]
-local function hB(t) return construct{b = t.B} end -- [B -> b]
+local function fromA(t) return construct{a = t.A} end -- [A -> a]
+local function fromB(t) return construct{b = t.B} end -- [B -> b]
 
--- Note that the same handler is called for each new table. Thus, the handler should be able to
--- differentiate objects based on some internal criteria.
-
-local t = construct{a = 'a', b = 'b'}
-print(t) -- "ab"
-
-local a = encode_decode(t, hA) -- [ab -> A -> a]
-print(a) -- "a"
-
-local b = encode_decode(t, hB, '__myEvent') -- [ab -> B -> b]
-print(b) -- "b"
+local obj = construct{a = 'a', b = 'b'}
+assert(tostring(obj) == 'ab')
+assert(tostring(encode_decode(obj, '__toA', fromA)) == 'a')
+assert(tostring(encode_decode(obj, '__toB', fromB)) == 'b')
 ```
 
 
