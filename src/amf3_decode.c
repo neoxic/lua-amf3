@@ -75,7 +75,7 @@ static size_t decodeInt32(lua_State *L, const char *buf, size_t pos, size_t size
 	unsigned val;
 	pos = decodeU32(L, buf, pos, size, &val);
 	if (sign) lua_pushinteger(L, (signed)val);
-	else {
+	else { /* 'val' may overfill 'lua_Integer' */
 		lua_Number n = val;
 		lua_Integer i = (lua_Integer)n;
 		if (i == n) lua_pushinteger(L, i);

@@ -37,7 +37,7 @@ A format string is a sequence of the following options:
 | U29 (variable length) | 1 .. 4 | -2^28 .. 2^28-1 | 0 .. 2^29-1    |
 | U32 (fixed length)    | 4      | -2^31 .. 2^31-1 | 0 .. 2^32-1    |
 
-All numeric data is stored as big-endian.
+All numeric data is stored as big-endian. All integral options check overflows.
 
 ### amf3.unpack(fmt, data, [pos])
 Returns the values packed in `data` according to the format string `fmt` (see above) along with the
@@ -45,15 +45,6 @@ index of the first unread byte. Optional `pos` marks where to start reading in `
 
 ### amf3.null
 A Lua value that represents the AMF3 Null type.
-
-
-Code example
-------------
-
-```Lua
-local amf3 = require 'amf3'
--- TODO
-```
 
 
 Building and installing with LuaRocks
@@ -86,6 +77,91 @@ or for LuaJIT:
     cmake -D USE_LUA_VERSION=jit .
 
 To build in a separate directory, replace `.` with a path to the source.
+
+
+Getting started
+---------------
+
+```Lua
+local amf3 = require 'amf3'
+
+-- Helpers
+local function encode_decode(val, h, ev)
+    return amf3.decode(amf3.encode(val, ev), 1, h)
+end
+local function pack_unpack(fmt, ...)
+    return amf3.unpack(fmt, amf3.pack(fmt, ...))
+end
+
+-- Primitive types
+assert(encode_decode(nil) == nil) -- 'nil' translates into 'Undefined'
+assert(encode_decode(amf3.null) == amf3.null) -- A distinct value for 'Null'
+assert(encode_decode(false) == false)
+assert(encode_decode(true) == true)
+assert(encode_decode(123) == 123)
+assert(encode_decode(123.456) == 123.456)
+assert(encode_decode('Hello!') == 'Hello!')
+
+-- Complex types
+local data = {
+    obj = { -- A table with only string keys translates into an 'Object'
+        str = 'abc',
+        data = 123,
+    },
+    dict = { -- A table with mixed keys translates into a 'Dictionary'
+        [-1] = 2,
+        [-1.2] = 3.4,
+        abc = 'def',
+        [amf3.null] = amf3.null,
+        [{a = 1}] = {b = 2}, -- A table can be a key
+    },
+    arr1 = {__array = true, 1, 2, 3}, -- A table with an '__array' field translates into an 'Array'
+    arr2 = {__array = 5, nil, 2, nil, 4, nil}, -- Array length can be adjusted to form a sparse array
+}
+data[data] = data -- Any circular references are safe
+
+local out = encode_decode(data)
+assert(out[out].obj.str == 'abc') -- Circular references are properly restored
+assert(out.dict[amf3.null] == amf3.null) -- 'Null' as a key or value
+assert(out.arr1.__array == #out.arr1) -- When a purely dense 'Array' is restored ...
+assert(out.arr2.__array == 5) -- ... its '__array' field contains the original length
+
+-- Packing/unpacking
+print(pack_unpack('bids', 123, 123456, -1.2, 'abc')) -- "123 123456 -1.2 abc 17"
+
+
+-- Advanced serialization/deserialization API allows to have multiple AMF3 representations (views)
+-- of the same underlying object using transformation handlers. This is helpful, for instance, when
+-- objects are sent to (received from) both trusted (internal) and untrusted (external) parties.
+
+-- Metatable
+local mt = {
+    __toAMF3 = function (t) return {A = t.a} end, -- Default event handler [a -> A]
+    __myEvent = function (t) return {B = t.b} end, -- Custom event handler [b -> B]
+    __tostring = function (t) return (t.a or '') .. (t.b or '') end
+}
+
+-- Constructor
+local function construct(t)
+    return setmetatable(t, mt)
+end
+
+-- Reverse handlers
+local function hA(t) return construct{a = t.A} end -- [A -> a]
+local function hB(t) return construct{b = t.B} end -- [B -> b]
+
+-- Note that the same handler is called for each new table. Thus, the handler should be able to
+-- differentiate objects based on some internal criteria.
+
+local t = construct{a = 'a', b = 'b'}
+print(t) -- "ab"
+
+local a = encode_decode(t, hA) -- [ab -> A -> a]
+print(a) -- "a"
+
+local b = encode_decode(t, hB, '__myEvent') -- [ab -> B -> b]
+print(b) -- "b"
+```
 
 
 [lua-amf3]: https://github.com/neoxic/lua-amf3

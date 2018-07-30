@@ -359,7 +359,7 @@ int amf3_pack(lua_State *L) {
 				break;
 			}
 			case 'I': {
-				lua_Integer val = luaL_checkinteger(L, arg);
+				lua_Integer val = luaL_checkinteger(L, arg); /* 'val' may overflow */
 				lua_Number n = lua_tonumber(L, arg);
 				checkRange(L, n >= INT32_MIN && n <= INT32_MAX, arg);
 				encodeU32(L, box, val);
@@ -372,7 +372,7 @@ int amf3_pack(lua_State *L) {
 				break;
 			}
 			case 'U': {
-				lua_Integer val = luaL_checkinteger(L, arg);
+				lua_Integer val = luaL_checkinteger(L, arg); /* 'val' may overflow */
 				lua_Number n = lua_tonumber(L, arg);
 				checkRange(L, n >= 0 && n <= UINT32_MAX, arg);
 				encodeU32(L, box, val);

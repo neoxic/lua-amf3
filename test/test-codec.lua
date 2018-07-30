@@ -261,7 +261,7 @@ local str = amf3_pack(fmt, unpack(args))
 table_insert(args, #str + 1)
 assert(compare(args, {amf3_unpack(fmt, str)}))
 
--- Range errors
+-- Range checks
 assert(not pcall(amf3_pack, 'b', -1))
 assert(not pcall(amf3_pack, 'b', 256))
 assert(not pcall(amf3_pack, 'i', -268435457))
