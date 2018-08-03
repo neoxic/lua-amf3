@@ -8,18 +8,17 @@ Returns a binary string containing an AMF3 representation of `value`. Optional `
 to specify a metamethod name (default is `__toAMF3`) to be called for every processed value. The
 value returned by the metamethod is used instead of the original value.
 
-A table (root or nested) is encoded into an array if it has an `__array` field whose value is
+A table (root or nested) is encoded into a dense array if it has a field `__array` whose value is
 neither `nil` nor `false`. The length of the resulting array can be adjusted by storing an integer
-value in the `__array` field. Otherwise, it is assumed to be equal to the raw length of the table.
+value in that field. Otherwise, it is assumed to be equal to the raw length of the table.
 
 ### amf3.decode(data, [pos], [handler])
 Returns the value encoded in `data` along with the index of the first unread byte. Optional `pos`
 marks where to start reading in `data` (default is 1). Optional `handler` is called for each new
 table (root or nested), and its return value is used instead of the original table.
 
-When an array is decoded, its length is stored in the `__array` field of the resulting table. When
-an object is decoded, the `__class` (class name) and `__data` (externalizable data) fields are set
-in the resulting table depending on the object's type.
+When an array is decoded, its length is stored in a field `__array`. When an object is decoded,
+fields `__class` (class name) and `__data` (externalizable data) are set depending on its type.
 
 ### amf3.pack(fmt, ...)
 Returns a binary string containing the values `...` packed according to the format string `fmt`.
@@ -69,7 +68,7 @@ To build and install, run:
     make
     make install
 
-To build against a specific Lua version, set the `USE_LUA_VERSION` variable. For example:
+To build against a specific Lua version, set `USE_LUA_VERSION`. For example:
 
     cmake -D USE_LUA_VERSION=5.1 .
 
@@ -116,7 +115,7 @@ local data = {
         [amf3.null] = amf3.null,
         [{a = 1}] = {b = 2}, -- A table can be a key
     },
-    arr1 = {__array = true, 1, 2, 3}, -- A table with an '__array' field translates into an 'Array'
+    arr1 = {__array = true, 1, 2, 3}, -- A table with a field '__array' translates into an 'Array'
     arr2 = {__array = 5, nil, 2, nil, 4, nil}, -- Array length can be adjusted to form a sparse array
 }
 data[data] = data -- All kinds of circular references are safe
@@ -124,8 +123,8 @@ data[data] = data -- All kinds of circular references are safe
 local out = encode_decode(data)
 assert(out[out].obj.str == 'abc') -- Circular references are properly restored
 assert(out.dict[amf3.null] == amf3.null) -- 'Null' as a key or value
-assert(out.arr1.__array == #out.arr1) -- When an 'Array' is restored ...
-assert(out.arr2.__array == 5) -- ... its '__array' field contains the number of indexed items
+assert(out.arr1.__array == #out.arr1)
+assert(out.arr2.__array == 5) -- Access to the number of items in an 'Array'
 
 -- Packing/unpacking values using AMF3-compatible numeric formats
 local b, i, d, s = pack_unpack('bids', 123, 123456, -1.2, 'abc')
