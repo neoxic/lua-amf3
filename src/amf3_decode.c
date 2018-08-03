@@ -156,16 +156,12 @@ static size_t decodeArray(lua_State *L, const char *buf, size_t pos, size_t size
 		pos = decodeValue(L, buf, pos, size, hidx, sidx, oidx, tidx);
 		lua_rawset(L, -3);
 	}
-	lua_pushnil(L);
-	if (lua_next(L, -2)) lua_pop(L, 2);
-	else { /* Restore array length */
-		lua_pushinteger(L, len);
-		lua_setfield(L, -2, "__array");
-	}
 	for (i = 0; i < len; ++i) { /* Dense part */
 		pos = decodeValue(L, buf, pos, size, hidx, sidx, oidx, tidx);
 		lua_rawseti(L, -2, i + 1);
 	}
+	lua_pushinteger(L, len);
+	lua_setfield(L, -2, "__array");
 	return pos;
 }
 

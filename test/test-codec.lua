@@ -29,7 +29,7 @@ local mt = {__toAMF3 = function (t) return copy(t) end}
 local vals = {
 	function () return amf3_null end, -- Null
 	function () return math_random() < 0.5 end, -- Boolean
-	function () return math_random(-268435456, 268435455) end, -- Integer
+	function () return math_random(-2147483648, 2147483647) end, -- Integer
 	function () return (math_random() - 0.5) * 1234567890 end, -- Double
 	function () -- String
 		local t = {}
@@ -226,7 +226,7 @@ local strs = {
 }
 
 local ba = string_char(0x11, 0x22, 0x33)
-local ma = {A = 2, B = 1, [1] = false, [2] = true, [3] = 0}
+local ma = {A = 2, B = 1, __array = 3, [1] = false, [2] = true, [3] = 0}
 local o1 = {A = 1, B = 2, C = 3, D = 4, E = 5, __class = 'ABC'}
 local o2 = {A = amf3_null, B = false, C = true, F = true, __class = 'ABC'}
 local o3 = {__data = false, __class = 'DEF'}

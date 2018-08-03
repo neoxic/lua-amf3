@@ -8,7 +8,7 @@ Returns a binary string containing an AMF3 representation of `value`. Optional `
 to specify a metamethod name (default is `__toAMF3`) to be called for every processed value. The
 value returned by the metamethod is used instead of the original value.
 
-A table (root or nested) is encoded into a dense array if it has an `__array` field whose value is
+A table (root or nested) is encoded into an array if it has an `__array` field whose value is
 neither `nil` nor `false`. The length of the resulting array can be adjusted by storing an integer
 value in the `__array` field. Otherwise, it is assumed to be equal to the raw length of the table.
 
@@ -17,8 +17,9 @@ Returns the value encoded in `data` along with the index of the first unread byt
 marks where to start reading in `data` (default is 1). Optional `handler` is called for each new
 table (root or nested), and its return value is used instead of the original table.
 
-The AMF3 Object type is converted into a table with optional `__class` (class name) and `__data`
-(externalizable object's data) fields.
+When an array is decoded, its length is stored in the `__array` field of the resulting table. When
+an object is decoded, the `__class` (class name) and `__data` (externalizable data) fields are set
+in the resulting table depending on the object's type.
 
 ### amf3.pack(fmt, ...)
 Returns a binary string containing the values `...` packed according to the format string `fmt`.
@@ -44,7 +45,7 @@ Returns the values packed in `data` according to the format string `fmt` (see ab
 index of the first unread byte. Optional `pos` marks where to start reading in `data` (default is 1).
 
 ### amf3.null
-A Lua value that represents the AMF3 Null type.
+A Lua value that represents AMF3 Null.
 
 
 Building and installing with LuaRocks
@@ -123,8 +124,8 @@ data[data] = data -- All kinds of circular references are safe
 local out = encode_decode(data)
 assert(out[out].obj.str == 'abc') -- Circular references are properly restored
 assert(out.dict[amf3.null] == amf3.null) -- 'Null' as a key or value
-assert(out.arr1.__array == #out.arr1) -- When a purely dense 'Array' is restored ...
-assert(out.arr2.__array == 5) -- ... its '__array' field contains the original length
+assert(out.arr1.__array == #out.arr1) -- When an 'Array' is restored ...
+assert(out.arr2.__array == 5) -- ... its '__array' field contains the number of indexed items
 
 -- Packing/unpacking values using AMF3-compatible numeric formats
 local b, i, d, s = pack_unpack('bids', 123, 123456, -1.2, 'abc')
