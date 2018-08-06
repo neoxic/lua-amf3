@@ -2,7 +2,6 @@ cmake_minimum_required(VERSION 3.0)
 project(lua-amf3)
 
 set(USE_LUA_VERSION "" CACHE STRING "Build against Lua version 'X.Y' (or 'JIT' for LuaJIT).")
-set(LUA_MODULE_PATH "" CACHE STRING "Path for Lua modules (or default if empty).")
 
 if(USE_LUA_VERSION MATCHES "^[0-9]\\.[0-9]$")
 	set(lua_ver ${USE_LUA_VERSION})
@@ -27,10 +26,6 @@ elseif(NOT lua_ver)
 	message(STATUS "Lua ${lua_ver} detected (set USE_LUA_VERSION to override)")
 endif()
 
-if(NOT LUA_MODULE_PATH)
-	set(LUA_MODULE_PATH lib/lua/${lua_ver})
-endif()
-
 add_definitions(-Wall -Wextra -Wpedantic -Wundef -Wshadow -Wredundant-decls
 	-Wstrict-prototypes -Wmissing-prototypes -Wno-variadic-macros)
 
@@ -44,7 +39,8 @@ if(APPLE)
 	set_target_properties(amf3 PROPERTIES SUFFIX ".so")
 endif()
 
-install(TARGETS amf3 LIBRARY DESTINATION ${LUA_MODULE_PATH})
+include(GNUInstallDirs)
+install(TARGETS amf3 DESTINATION ${CMAKE_INSTALL_LIBDIR}/lua/${lua_ver})
 
 enable_testing()
 find_program(LUA_COMMAND NAMES ${lua_names})
@@ -52,5 +48,4 @@ file(GLOB tests test/test-*.lua)
 foreach(test ${tests})
 	string(REGEX REPLACE "^.*(test-[^/\\]+\\.lua)$" "\\1" name ${test})
 	add_test(${name} ${LUA_COMMAND} ${test})
-	set_tests_properties(${name} PROPERTIES ENVIRONMENT "LUA_PATH=${CMAKE_CURRENT_SOURCE_DIR}/test/?.lua")
 endforeach()
