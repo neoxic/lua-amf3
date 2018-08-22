@@ -68,7 +68,7 @@ To build and install, run:
     make
     make install
 
-To build against a specific Lua version, set `USE_LUA_VERSION`. For example:
+To build for a specific Lua version, set `USE_LUA_VERSION`. For example:
 
     cmake -D USE_LUA_VERSION=5.1 .
 
