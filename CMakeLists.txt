@@ -27,6 +27,10 @@ else()
 	message(STATUS "Using Lua '${USE_LUA_VERSION}', version ${LUA_VERSION}")
 endif()
 
+include(GNUInstallDirs)
+set(CMAKE_INSTALL_RPATH ${CMAKE_INSTALL_PREFIX}/${CMAKE_INSTALL_LIBDIR})
+set(CMAKE_MACOSX_RPATH ON)
+
 add_definitions(-Wall -Wextra -Wpedantic -Wundef -Wshadow -Wredundant-decls
 	-Wstrict-prototypes -Wmissing-prototypes -Wno-variadic-macros)
 
@@ -40,7 +44,6 @@ if(APPLE)
 	set_target_properties(amf3 PROPERTIES SUFFIX ".so")
 endif()
 
-include(GNUInstallDirs)
 install(TARGETS amf3 DESTINATION ${CMAKE_INSTALL_LIBDIR}/lua/${ver})
 
 enable_testing()
