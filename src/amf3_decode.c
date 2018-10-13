@@ -100,7 +100,7 @@ static size_t decodeDouble(lua_State *L, const char *buf, size_t pos, size_t siz
 }
 
 static size_t decodeRef(lua_State *L, const char *buf, size_t pos, size_t size, int ridx, int *val) {
-	int pfx, def, _pos = pos;
+	int pfx, def, pos_ = pos;
 	pos = decodeU29(L, buf, pos, size, &pfx);
 	def = pfx & 1;
 	pfx >>= 1;
@@ -109,7 +109,7 @@ static size_t decodeRef(lua_State *L, const char *buf, size_t pos, size_t size, 
 		return pos;
 	}
 	lua_rawgeti(L, ridx, pfx + 1);
-	if (lua_isnil(L, -1)) luaL_error(L, "invalid reference %d at position %d", pfx, _pos + 1);
+	if (lua_isnil(L, -1)) luaL_error(L, "invalid reference %d at position %d", pfx, pos_ + 1);
 	*val = -1;
 	return pos;
 }
@@ -166,7 +166,7 @@ static size_t decodeArray(lua_State *L, const char *buf, size_t pos, size_t size
 }
 
 static size_t decodeObject(lua_State *L, const char *buf, size_t pos, size_t size, int hidx, int sidx, int oidx, int tidx) {
-	int pfx, def, i, n, _pos = pos;
+	int pfx, def, i, n, pos_ = pos;
 	pos = decodeRef(L, buf, pos, size, oidx, &pfx);
 	if (pfx == -1) return pos;
 	def = pfx & 1;
@@ -185,7 +185,7 @@ static size_t decodeObject(lua_State *L, const char *buf, size_t pos, size_t siz
 		}
 	} else { /* Existing traits */
 		lua_rawgeti(L, tidx, pfx + 1);
-		if (lua_isnil(L, -1)) luaL_error(L, "invalid class reference %d at position %d", pfx, _pos + 1);
+		if (lua_isnil(L, -1)) luaL_error(L, "invalid class reference %d at position %d", pfx, pos_ + 1);
 		lua_rawgeti(L, -1, 1);
 		pfx = lua_tointeger(L, -1);
 		lua_pop(L, 1);
@@ -274,7 +274,7 @@ static size_t decodeDictionary(lua_State *L, const char *buf, size_t pos, size_t
 }
 
 static size_t decodeValueData(lua_State *L, const char *buf, size_t pos, size_t size, int hidx, int sidx, int oidx, int tidx) {
-	int type, _pos = pos;
+	int type, pos_ = pos;
 	pos = decodeByte(L, buf, pos, size, &type);
 	switch (type) {
 		case AMF3_UNDEFINED:
@@ -313,7 +313,7 @@ static size_t decodeValueData(lua_State *L, const char *buf, size_t pos, size_t 
 		case AMF3_DICTIONARY:
 			return decodeDictionary(L, buf, pos, size, hidx, sidx, oidx, tidx);
 		default:
-			luaL_error(L, "invalid value type %d at position %d", type, _pos + 1);
+			luaL_error(L, "invalid value type %d at position %d", type, pos_ + 1);
 			break;
 	}
 	return pos;

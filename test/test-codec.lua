@@ -27,6 +27,7 @@ end
 
 local mt = {__toAMF3 = function (t) return copy(t) end}
 local vals = {
+	function () return nil end, -- Undefined
 	function () return amf3_null end, -- Null
 	function () return math_random() < 0.5 end, -- Boolean
 	function () return math_random(-2147483648, 2147483647) end, -- Integer
@@ -57,7 +58,7 @@ local objs = {
 	function (d) -- Object
 		local t = setmetatable({}, mt)
 		for i = 1, math_random(0, 10) do
-			local k = vals[5]() -- Random string key
+			local k = vals[6]() -- Random string key
 			if #k > 0 then
 				t[k] = any(d + 1)
 			end
@@ -146,7 +147,7 @@ math.randomseed(os.time())
 for i = 1, 1000 do
 	local obj = spawn()
 	local str = amf3_encode(obj)
-	local obj_, pos = amf3_decode(str, 1, handler)
+	local obj_, pos = amf3_decode(str, nil, handler)
 	assert(compare(obj, obj_))
 	assert(pos == #str + 1)
 

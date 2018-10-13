@@ -9,8 +9,8 @@ to specify a metamethod name (default is `__toAMF3`) to be called for every proc
 value returned by the metamethod is used instead of the original value.
 
 A table (root or nested) is encoded into a dense array if it has a field `__array` whose value is
-neither `nil` nor `false`. The length of the resulting array can be adjusted by storing an integer
-value in that field. Otherwise, it is assumed to be equal to the raw length of the table.
+_true_. The length of the resulting array can be adjusted by storing an integer value in that field.
+Otherwise, it is assumed to be equal to the raw length of the table.
 
 ### amf3.decode(data, [pos], [handler])
 Returns the value encoded in `data` along with the index of the first unread byte. Optional `pos`
@@ -87,7 +87,7 @@ local amf3 = require 'amf3'
 
 -- Helpers
 local function encode_decode(val, ev, h)
-    return amf3.decode(amf3.encode(val, ev), 1, h)
+    return amf3.decode(amf3.encode(val, ev), nil, h)
 end
 local function pack_unpack(fmt, ...)
     return amf3.unpack(fmt, amf3.pack(fmt, ...))
