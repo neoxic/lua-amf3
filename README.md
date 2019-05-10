@@ -5,7 +5,7 @@ AMF3 encoding/decoding library for Lua
 
 ### amf3.encode(value, [event])
 Returns a binary string containing an AMF3 representation of `value`. Optional `event` may be used
-to specify a metamethod name (default is `__toAMF3`) to be called for every processed value. The
+to specify a metamethod name (default is `__toAMF3`) that is called for every processed value. The
 value returned by the metamethod is used instead of the original value.
 
 A table (root or nested) is encoded into a dense array if it has a field `__array` whose value is
@@ -94,8 +94,8 @@ local function pack_unpack(fmt, ...)
 end
 
 -- Primitive types
-assert(encode_decode(nil) == nil) -- 'nil' translates into 'Undefined'
-assert(encode_decode(amf3.null) == amf3.null) -- A distinct value for 'Null'
+assert(encode_decode(nil) == nil)
+assert(encode_decode(amf3.null) == amf3.null)
 assert(encode_decode(false) == false)
 assert(encode_decode(true) == true)
 assert(encode_decode(123) == 123)
@@ -104,27 +104,30 @@ assert(encode_decode('abc') == 'abc')
 
 -- Complex types
 local data = {
-    obj = { -- A table with only string keys translates into an 'Object'
+    obj = { -- A table with only string keys translates into an object
         str = 'abc',
-        data = 123,
+        len = 3,
+        val = -10.2,
+        null = amf3.null,
     },
-    dict = { -- A table with mixed keys translates into a 'Dictionary'
+    dict = { -- A table with mixed keys translates into a dictionary
         [-1] = 2,
         [-1.2] = 3.4,
         abc = 'def',
         [amf3.null] = amf3.null,
         [{a = 1}] = {b = 2}, -- A table can be a key
     },
-    arr1 = {__array = true, 1, 2, 3}, -- A table with a field '__array' translates into an 'Array'
+    arr1 = {__array = true, 1, 2, 3}, -- A table with a field '__array' translates into an array
     arr2 = {__array = 5, nil, 2, nil, 4, nil}, -- Array length can be adjusted to form a sparse array
 }
 data[data] = data -- All kinds of circular references are safe
 
 local out = encode_decode(data)
 assert(out[out].obj.str == 'abc') -- Circular references are properly restored
-assert(out.dict[amf3.null] == amf3.null) -- 'Null' as a key or value
-assert(out.arr1.__array == #out.arr1)
-assert(out.arr2.__array == 5) -- Access to the number of items in an 'Array'
+assert(out.obj.null == amf3.null) -- 'null' as a field value
+assert(out.dict[amf3.null] == amf3.null) -- 'null' as a key or value
+assert(out.arr1.__array == #out.arr1) -- Array length is restored
+assert(out.arr2.__array == 5) -- Access to the number of items in a sparse array
 
 -- Packing/unpacking values using AMF3-compatible numeric formats
 local b, i, d, s = pack_unpack('bids', 123, 123456, -1.2, 'abc')

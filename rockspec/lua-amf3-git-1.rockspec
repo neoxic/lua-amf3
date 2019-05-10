@@ -18,8 +18,8 @@ build = {
 		amf3 = {
 			sources = {
 				'src/amf3.c',
-				'src/amf3_encode.c',
-				'src/amf3_decode.c',
+				'src/amf3-encode.c',
+				'src/amf3-decode.c',
 			},
 		},
 	},

@@ -1,21 +1,4 @@
 local amf3 = require 'amf3'
-local amf3_encode = amf3.encode
-local amf3_decode = amf3.decode
-local amf3_pack = amf3.pack
-local amf3_unpack = amf3.unpack
-local amf3_null = amf3.null
-
-local error = error
-local pairs = pairs
-local print = print
-local type = type
-local unpack = unpack
-local io_flush = io.flush
-local io_write = io.write
-local math_random = math.random
-local string_char = string.char
-local table_concat = table.concat
-local table_insert = table.insert
 
 local function copy(t)
 	local r = {}
@@ -28,62 +11,62 @@ end
 local mt = {__toAMF3 = function (t) return copy(t) end}
 local vals = {
 	function () return nil end, -- Undefined
-	function () return amf3_null end, -- Null
-	function () return math_random() < 0.5 end, -- Boolean
-	function () return math_random(-2147483648, 2147483647) end, -- Integer
-	function () return (math_random() - 0.5) * 1234567890 end, -- Double
+	function () return amf3.null end, -- Null
+	function () return math.random() < 0.5 end, -- Boolean
+	function () return math.random(-2147483648, 2147483647) end, -- Integer
+	function () return (math.random() - 0.5) * 1234567890 end, -- Double
 	function () -- String
 		local t = {}
-		for i = 1, math_random(0, 10) do
-			t[i] = string_char(math_random(0, 255))
+		for i = 1, math.random(0, 10) do
+			t[i] = string.char(math.random(0, 255))
 		end
-		return table_concat(t)
+		return table.concat(t)
 	end,
 }
 local refs, any
 local objs = {
 	function () -- Reference
 		local n = #refs
-		return n > 0 and refs[math_random(n)] or nil
+		return n > 0 and refs[math.random(n)] or nil
 	end,
 	function (d) -- Array
-		local n = math_random(0, 10)
+		local n = math.random(0, 10)
 		local t = setmetatable({__array = n}, mt)
 		for i = 1, n do
 			t[i] = any(d + 1)
 		end
-		table_insert(refs, t)
+		table.insert(refs, t)
 		return t
 	end,
 	function (d) -- Object
 		local t = setmetatable({}, mt)
-		for i = 1, math_random(0, 10) do
+		for i = 1, math.random(0, 10) do
 			local k = vals[6]() -- Random string key
 			if #k > 0 then
 				t[k] = any(d + 1)
 			end
 		end
-		table_insert(refs, t)
+		table.insert(refs, t)
 		return t
 	end,
 	function (d) -- Dictionary
 		local t = setmetatable({}, mt)
-		for i = 1, math_random(0, 10) do
+		for i = 1, math.random(0, 10) do
 			local k = any(d + 1)
 			if k ~= nil then
 				t[k] = any(d + 1)
 			end
 		end
-		table_insert(refs, t)
+		table.insert(refs, t)
 		return t
 	end,
 }
 
 function any(d)
-	if d < 4 and math_random() < 0.7 then
-		return objs[math_random(#objs)](d)
+	if d < 4 and math.random() < 0.7 then
+		return objs[math.random(#objs)](d)
 	end
-	return vals[math_random(#vals)]()
+	return vals[math.random(#vals)]()
 end
 
 local function spawn()
@@ -141,28 +124,30 @@ end
 
 math.randomseed(os.time())
 
-
--- Stress test
+-----------------
+-- Stress test --
+-----------------
 
 for i = 1, 1000 do
 	local obj = spawn()
-	local str = amf3_encode(obj)
-	local obj_, pos = amf3_decode(str, nil, handler)
+	local str = amf3.encode(obj)
+	local obj_, pos = amf3.decode(str, nil, handler)
 	assert(compare(obj, obj_))
 	assert(pos == #str + 1)
 
-	-- Additional decoder's robustness test
+	-- Extra robustness test
 	for pos = 2, pos do
-		pcall(amf3_decode, str, pos)
+		pcall(amf3.decode, str, pos)
 	end
 end
 
-
--- Compliance test
+---------------------
+-- Compliance test --
+---------------------
 
 local strs = {
 	-- Date, XML, XMLDoc, ByteArray
-	string_char(
+	string.char(
 		0x09, 0x11, 0x01, -- Array (length 8)
 			0x08, 0x01, 0x3f, 0xb9, 0x99, 0x99, 0x99, 0x99, 0x99, 0x9a, -- Date (0.1)
 			0x0b, 0x07, 0x41, 0x42, 0x43, -- XML ('ABC')
@@ -174,7 +159,7 @@ local strs = {
 			0x0c, 0x08 -- ByteArray (reference 4)
 	),
 	-- Array
-	string_char(
+	string.char(
 		0x09, 0x05, 0x01, -- Array (length 2)
 			0x09, 0x07, -- Array (length 3)
 				0x03, 0x41, 0x04, 0x00, 0x03, 0x42, 0x04, 0x01, 0x00, 0x04, 0x02, -- Associative part: A:0, B:1, A:2 (should reset the key)
@@ -183,7 +168,7 @@ local strs = {
 			0x09, 0x02 -- Array (reference 1)
 	),
 	-- Object
-	string_char(
+	string.char(
 		0x09, 0x11, 0x01, -- Array (length 8)
 			0x0a, 0x3b, 0x07, 0x41, 0x42, 0x43, 0x03, 0x41, 0x03, 0x42, 0x03, 0x43, -- Dynamic class ABC with static members A, B, C
 				0x04, 0x01, 0x04, 0x02, 0x04, 0x03, -- Static member values: A:1, B:2, C:3
@@ -203,7 +188,7 @@ local strs = {
 			0x0a, 0x08 -- Object (reference 4)
 	),
 	-- Vector
-	string_char(
+	string.char(
 		0x09, 0x11, 0x01, -- Array (length 8)
 			0x0d, 0x05, 0x00, 0x00, 0x01, 0x02, 0x03, 0xff, 0xff, 0xff, 0xff, -- Vector of ints [66051, -1]
 			0x0e, 0x05, 0x00, 0x00, 0x01, 0x02, 0x03, 0xff, 0xff, 0xff, 0xff, -- Vector of uints [66051, 4294967295]
@@ -215,7 +200,7 @@ local strs = {
 			0x10, 0x08 -- Vector of objects (reference 4)
 	),
 	-- Dictionary
-	string_char(
+	string.char(
 		0x09, 0x05, 0x01, -- Array (length 2)
 			0x11, 0x09, 0x00, -- Dictionary (length 4)
 				0x0a, 0x0b, 0x01, 0x01, 0x02, -- {} => false
@@ -226,10 +211,10 @@ local strs = {
 	),
 }
 
-local ba = string_char(0x11, 0x22, 0x33)
+local ba = string.char(0x11, 0x22, 0x33)
 local ma = {A = 2, B = 1, __array = 3, [1] = false, [2] = true, [3] = 0}
 local o1 = {A = 1, B = 2, C = 3, D = 4, E = 5, __class = 'ABC'}
-local o2 = {A = amf3_null, B = false, C = true, F = true, __class = 'ABC'}
+local o2 = {A = amf3.null, B = false, C = true, F = true, __class = 'ABC'}
 local o3 = {__data = false, __class = 'DEF'}
 local o4 = {__data = true, __class = 'DEF'}
 local vi = {66051, -1}
@@ -247,29 +232,30 @@ local objs = {
 
 for i = 1, #strs do
 	local str, obj = strs[i], objs[i]
-	local obj_, pos = amf3_decode(str)
+	local obj_, pos = amf3.decode(str)
 	assert(compare(obj, obj_))
 	assert(pos == #str + 1)
 end
 
-
--- Pack/unpack test
+----------------------
+-- Pack/unpack test --
+----------------------
 
 local fmt = 'biiuIIUdsSsS'
 local args = {255, -268435456, 268435455, 536870911, -2147483648, 2147483647, 4294967295, -10.2, '', '', 'abc', '1234567890'}
 local unpack = table.unpack or unpack
-local str = amf3_pack(fmt, unpack(args))
-table_insert(args, #str + 1)
-assert(compare(args, {amf3_unpack(fmt, str)}))
+local str = amf3.pack(fmt, unpack(args))
+table.insert(args, #str + 1)
+assert(compare(args, {amf3.unpack(fmt, str)}))
 
 -- Range checks
-assert(not pcall(amf3_pack, 'b', -1))
-assert(not pcall(amf3_pack, 'b', 256))
-assert(not pcall(amf3_pack, 'i', -268435457))
-assert(not pcall(amf3_pack, 'i', 268435456))
-assert(not pcall(amf3_pack, 'u', -1))
-assert(not pcall(amf3_pack, 'u', 536870912))
-assert(not pcall(amf3_pack, 'I', -2147483649))
-assert(not pcall(amf3_pack, 'I', 2147483648))
-assert(not pcall(amf3_pack, 'U', -1))
-assert(not pcall(amf3_pack, 'U', 4294967296))
+assert(not pcall(amf3.pack, 'b', -1))
+assert(not pcall(amf3.pack, 'b', 256))
+assert(not pcall(amf3.pack, 'i', -268435457))
+assert(not pcall(amf3.pack, 'i', 268435456))
+assert(not pcall(amf3.pack, 'u', -1))
+assert(not pcall(amf3.pack, 'u', 536870912))
+assert(not pcall(amf3.pack, 'I', -2147483649))
+assert(not pcall(amf3.pack, 'I', 2147483648))
+assert(not pcall(amf3.pack, 'U', -1))
+assert(not pcall(amf3.pack, 'U', 4294967296))

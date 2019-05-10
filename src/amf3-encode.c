@@ -1,5 +1,5 @@
 /*
-** Copyright (C) 2012-2018 Arseny Vakhrushev <arseny.vakhrushev@gmail.com>
+** Copyright (C) 2012-2019 Arseny Vakhrushev <arseny.vakhrushev@gmail.com>
 **
 ** Permission is hereby granted, free of charge, to any person obtaining a copy
 ** of this software and associated documentation files (the "Software"), to deal
@@ -20,9 +20,9 @@
 ** THE SOFTWARE.
 */
 
-#include <string.h>
 #include <stdarg.h>
 #include <stdint.h>
+#include <string.h>
 #include "amf3.h"
 
 #define MAXSTACK 1000 /* Arbitrary stack size limit to check for recursion */
@@ -55,7 +55,7 @@ static Box *newBox(lua_State *L) {
 	box->buf = box->data;
 	box->pos = 0;
 	box->size = sizeof box->data;
-	if (luaL_newmetatable(L, "AMF3-BOX")) {
+	if (luaL_newmetatable(L, MODNAME)) {
 		lua_pushcfunction(L, m__gc);
 		lua_setfield(L, -2, "__gc");
 	}
@@ -174,7 +174,7 @@ static int error(lua_State *L, int *nerr, const char *fmt, ...) {
 	lua_pushvfstring(L, fmt, ap);
 	va_end(ap);
 	lua_insert(L, -(++(*nerr)));
-	return -1;
+	return 0;
 }
 
 static int errorTrace(lua_State *L, int *nerr, int idx) {
@@ -195,20 +195,20 @@ static int encodeValue(lua_State *L, Box *box, int idx, const char *ev, int sidx
 
 static int encodeArray(lua_State *L, Box *box, int idx, const char *ev, int sidx, int oidx, int *tf, int *nerr, int len) {
 	int i, top = lua_gettop(L);
-	if (encodeRef(L, box, idx, oidx)) return 0;
+	if (encodeRef(L, box, idx, oidx)) return 1;
 	encodeU29(L, box, (len << 1) | 1);
 	encodeByte(L, box, 0x01); /* Empty associative part */
 	for (i = 0; i < len; ++i) {
 		lua_rawgeti(L, idx, i + 1);
-		if (encodeValue(L, box, top + 1, ev, sidx, oidx, tf, nerr)) return error(L, nerr, "[%d] => ", i + 1);
+		if (!encodeValue(L, box, top + 1, ev, sidx, oidx, tf, nerr)) return error(L, nerr, "[%d] => ", i + 1);
 		lua_pop(L, 1);
 	}
-	return 0;
+	return 1;
 }
 
 static int encodeObject(lua_State *L, Box *box, int idx, const char *ev, int sidx, int oidx, int *tf, int *nerr) {
 	int top = lua_gettop(L);
-	if (encodeRef(L, box, idx, oidx)) return 0;
+	if (encodeRef(L, box, idx, oidx)) return 1;
 	if (*tf) encodeByte(L, box, 0x01); /* Traits have been encoded earlier */
 	else {
 		*tf = 1;
@@ -217,47 +217,60 @@ static int encodeObject(lua_State *L, Box *box, int idx, const char *ev, int sid
 	}
 	for (lua_pushnil(L); lua_next(L, idx); lua_pop(L, 1)) {
 		encodeString(L, box, top + 1, sidx);
-		if (encodeValue(L, box, top + 2, ev, sidx, oidx, tf, nerr)) return errorTrace(L, nerr, top + 1);
+		if (!encodeValue(L, box, top + 2, ev, sidx, oidx, tf, nerr)) return errorTrace(L, nerr, top + 1);
 	}
 	encodeByte(L, box, 0x01);
-	return 0;
+	return 1;
 }
 
 static int encodeDictionary(lua_State *L, Box *box, int idx, const char *ev, int sidx, int oidx, int *tf, int *nerr, int len) {
 	int top = lua_gettop(L);
-	if (encodeRef(L, box, idx, oidx)) return 0;
+	if (encodeRef(L, box, idx, oidx)) return 1;
 	encodeU29(L, box, (len << 1) | 1);
 	encodeByte(L, box, 0x00); /* weak-keys=0 */
 	for (lua_pushnil(L); lua_next(L, idx); lua_pop(L, 1)) {
-		if (encodeValue(L, box, top + 1, ev, sidx, oidx, tf, nerr)) return errorTrace(L, nerr, idx);
-		if (encodeValue(L, box, top + 2, ev, sidx, oidx, tf, nerr)) return errorTrace(L, nerr, top + 1);
+		if (!encodeValue(L, box, top + 1, ev, sidx, oidx, tf, nerr)) return errorTrace(L, nerr, idx);
+		if (!encodeValue(L, box, top + 2, ev, sidx, oidx, tf, nerr)) return errorTrace(L, nerr, top + 1);
 	}
-	return 0;
+	return 1;
+}
+
+static int isInteger(lua_State *L, int idx, lua_Integer *val) {
+	lua_Integer i;
+#if LUA_VERSION_NUM < 503
+	lua_Number n;
+	if (!lua_isnumber(L, idx)) return 0;
+	n = lua_tonumber(L, idx);
+	i = (lua_Integer)n;
+	if (i != n) return 0;
+#else
+	int res;
+	i = lua_tointegerx(L, idx, &res);
+	if (!res) return 0;
+#endif
+	*val = i;
+	return 1;
 }
 
 static int getTableType(lua_State *L, int idx, int *len) {
 	int res;
-	size_t n;
+	lua_Integer i;
 	lua_getfield(L, idx, "__array");
 	if (lua_toboolean(L, -1)) {
 		res = LUA_TNUMBER; /* Dense array */
-		if (!lua_isnumber(L, -1)) n = lua_rawlen(L, idx);
-		else {
-			lua_Integer i = lua_tointeger(L, -1);
-			if (i < 0) i = 0;
-			n = i;
-		}
+		if (!isInteger(L, -1, &i)) i = (lua_Integer)lua_rawlen(L, idx);
+		if (i < 0) i = 0;
 	} else {
 		res = LUA_TSTRING; /* Associative array */
-		for (n = 0, lua_pushnil(L); lua_next(L, idx); lua_pop(L, 1), ++n) {
+		for (i = 0, lua_pushnil(L); lua_next(L, idx); lua_pop(L, 1), ++i) {
 			if (res == LUA_TNONE) continue; /* Keep counting length */
 			if (lua_type(L, -2) == LUA_TSTRING && lua_rawlen(L, -2)) continue;
 			res = LUA_TNONE; /* Dictionary */
 		}
 	}
 	lua_pop(L, 1);
-	if (n > AMF3_INT_MAX) luaL_error(L, "table too big");
-	*len = n;
+	if (i > AMF3_INT_MAX) luaL_error(L, "table too big");
+	*len = i;
 	return res;
 }
 
@@ -270,14 +283,13 @@ static int encodeValueData(lua_State *L, Box *box, int idx, const char *ev, int 
 			encodeByte(L, box, lua_toboolean(L, idx) ? AMF3_TRUE : AMF3_FALSE);
 			break;
 		case LUA_TNUMBER: {
-			lua_Number n = lua_tonumber(L, idx);
-			lua_Integer i = (lua_Integer)n;
-			if (i == n && i >= AMF3_INT_MIN && i <= AMF3_INT_MAX) {
+			lua_Integer i;
+			if (isInteger(L, idx, &i) && i >= AMF3_INT_MIN && i <= AMF3_INT_MAX) {
 				encodeByte(L, box, AMF3_INTEGER);
 				encodeU29(L, box, i);
 			} else {
 				encodeByte(L, box, AMF3_DOUBLE);
-				encodeDouble(L, box, n);
+				encodeDouble(L, box, lua_tonumber(L, idx));
 			}
 			break;
 		}
@@ -310,18 +322,17 @@ static int encodeValueData(lua_State *L, Box *box, int idx, const char *ev, int 
 		default:
 			return error(L, nerr, "%s unexpected", luaL_typename(L, idx));
 	}
-	return 0;
+	return 1;
 }
 
 static int encodeValue(lua_State *L, Box *box, int idx, const char *ev, int sidx, int oidx, int *tf, int *nerr) {
-	int res, old = idx;
-	if (luaL_callmeta(L, idx, ev)) idx = lua_gettop(L); /* Use modified value */
-	res = encodeValueData(L, box, idx, ev, sidx, oidx, tf, nerr);
-	if (idx != old) lua_remove(L, idx); /* Remove modified value */
-	return res;
+	int top = luaL_callmeta(L, idx, ev); /* Transform value */
+	if (!encodeValueData(L, box, top ? lua_gettop(L) : idx, ev, sidx, oidx, tf, nerr)) return 0;
+	if (top) lua_pop(L, 1); /* Remove modified value */
+	return 1;
 }
 
-int amf3_encode(lua_State *L) {
+int amf3__encode(lua_State *L) {
 	Box *box;
 	const char *ev;
 	int tf = 0, nerr = 0;
@@ -331,7 +342,7 @@ int amf3_encode(lua_State *L) {
 	lua_newtable(L);
 	lua_newtable(L);
 	box = newBox(L);
-	if (encodeValue(L, box, 1, ev, 3, 4, &tf, &nerr)) {
+	if (!encodeValue(L, box, 1, ev, 3, 4, &tf, &nerr)) {
 		lua_concat(L, nerr);
 		return luaL_argerror(L, 1, lua_tostring(L, -1));
 	}
@@ -339,7 +350,7 @@ int amf3_encode(lua_State *L) {
 	return 1;
 }
 
-int amf3_pack(lua_State *L) {
+int amf3__pack(lua_State *L) {
 	const char *fmt = luaL_checkstring(L, 1);
 	int arg, opt, top = lua_gettop(L);
 	Box *box = newBox(L);
@@ -347,35 +358,35 @@ int amf3_pack(lua_State *L) {
 		if (arg > top) return luaL_argerror(L, arg, "value expected");
 		switch (opt) {
 			case 'b': {
-				lua_Integer val = luaL_checkinteger(L, arg);
-				checkRange(L, val >= 0 && val <= UINT8_MAX, arg);
-				encodeByte(L, box, val);
+				lua_Integer i = luaL_checkinteger(L, arg);
+				checkRange(L, i >= 0 && i <= UINT8_MAX, arg);
+				encodeByte(L, box, i);
 				break;
 			}
 			case 'i': {
-				lua_Integer val = luaL_checkinteger(L, arg);
-				checkRange(L, val >= AMF3_INT_MIN && val <= AMF3_INT_MAX, arg);
-				encodeU29(L, box, val);
+				lua_Integer i = luaL_checkinteger(L, arg);
+				checkRange(L, i >= AMF3_INT_MIN && i <= AMF3_INT_MAX, arg);
+				encodeU29(L, box, i);
 				break;
 			}
 			case 'I': {
-				lua_Integer val = luaL_checkinteger(L, arg); /* 'val' may overflow */
+				lua_Integer i = luaL_checkinteger(L, arg); /* May overflow */
 				lua_Number n = lua_tonumber(L, arg);
 				checkRange(L, n >= INT32_MIN && n <= INT32_MAX, arg);
-				encodeU32(L, box, val);
+				encodeU32(L, box, i);
 				break;
 			}
 			case 'u': {
-				lua_Integer val = luaL_checkinteger(L, arg);
-				checkRange(L, val >= 0 && val <= AMF3_U29_MAX, arg);
-				encodeU29(L, box, val);
+				lua_Integer i = luaL_checkinteger(L, arg);
+				checkRange(L, i >= 0 && i <= AMF3_U29_MAX, arg);
+				encodeU29(L, box, i);
 				break;
 			}
 			case 'U': {
-				lua_Integer val = luaL_checkinteger(L, arg); /* 'val' may overflow */
+				lua_Integer i = luaL_checkinteger(L, arg); /* May overflow */
 				lua_Number n = lua_tonumber(L, arg);
 				checkRange(L, n >= 0 && n <= UINT32_MAX, arg);
-				encodeU32(L, box, val);
+				encodeU32(L, box, i);
 				break;
 			}
 			case 'd':

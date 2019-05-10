@@ -1,5 +1,5 @@
 /*
-** Copyright (C) 2012-2018 Arseny Vakhrushev <arseny.vakhrushev@gmail.com>
+** Copyright (C) 2012-2019 Arseny Vakhrushev <arseny.vakhrushev@gmail.com>
 **
 ** Permission is hereby granted, free of charge, to any person obtaining a copy
 ** of this software and associated documentation files (the "Software"), to deal
@@ -166,12 +166,13 @@ static size_t decodeArray(lua_State *L, const char *buf, size_t pos, size_t size
 }
 
 static size_t decodeObject(lua_State *L, const char *buf, size_t pos, size_t size, int hidx, int sidx, int oidx, int tidx) {
-	int pfx, def, i, n, pos_ = pos;
+	int pfx, def, pos_ = pos;
 	pos = decodeRef(L, buf, pos, size, oidx, &pfx);
 	if (pfx == -1) return pos;
 	def = pfx & 1;
 	pfx >>= 1;
 	if (def) { /* New traits */
+		int i, n = pfx >> 2;
 		lua_newtable(L);
 		lua_pushvalue(L, -1);
 		luaL_ref(L, tidx);
@@ -179,7 +180,7 @@ static size_t decodeObject(lua_State *L, const char *buf, size_t pos, size_t siz
 		lua_rawseti(L, -2, 1);
 		pos = decodeString(L, buf, pos, size, sidx, 0); /* Class name */
 		lua_rawseti(L, -2, 2);
-		for (i = 0, n = pfx >> 2; i < n; ++i) { /* Static member names */
+		for (i = 0; i < n; ++i) { /* Static member names */
 			pos = decodeString(L, buf, pos, size, sidx, 0);
 			lua_rawseti(L, -2, i + 3);
 		}
@@ -198,7 +199,8 @@ static size_t decodeObject(lua_State *L, const char *buf, size_t pos, size_t siz
 		pos = decodeValue(L, buf, pos, size, hidx, sidx, oidx, tidx);
 		lua_setfield(L, -2, "__data");
 	} else {
-		for (i = 0, n = pfx >> 2; i < n; ++i) {
+		int i, n = pfx >> 2;
+		for (i = 0; i < n; ++i) {
 			lua_rawgeti(L, -2, i + 3);
 			pos = decodeValue(L, buf, pos, size, hidx, sidx, oidx, tidx);
 			lua_rawset(L, -3);
@@ -328,7 +330,7 @@ static size_t decodeValue(lua_State *L, const char *buf, size_t pos, size_t size
 	return pos;
 }
 
-int amf3_decode(lua_State *L) {
+int amf3__decode(lua_State *L) {
 	size_t size;
 	const char *buf = luaL_checklstring(L, 1, &size);
 	size_t pos = luaL_optinteger(L, 2, 1) - 1;
@@ -341,7 +343,7 @@ int amf3_decode(lua_State *L) {
 	return 2;
 }
 
-int amf3_unpack(lua_State *L) {
+int amf3__unpack(lua_State *L) {
 	const char *fmt = luaL_checkstring(L, 1);
 	size_t size;
 	const char *buf = luaL_checklstring(L, 2, &size);

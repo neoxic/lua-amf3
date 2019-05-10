@@ -1,5 +1,5 @@
 /*
-** Copyright (C) 2012-2018 Arseny Vakhrushev <arseny.vakhrushev@gmail.com>
+** Copyright (C) 2012-2019 Arseny Vakhrushev <arseny.vakhrushev@gmail.com>
 **
 ** Permission is hereby granted, free of charge, to any person obtaining a copy
 ** of this software and associated documentation files (the "Software"), to deal
@@ -31,10 +31,10 @@
 EXPORT int luaopen_amf3(lua_State *L);
 
 static const luaL_Reg funcs[] = {
-	{"encode", amf3_encode},
-	{"decode", amf3_decode},
-	{"pack", amf3_pack},
-	{"unpack", amf3_unpack},
+	{"encode", amf3__encode},
+	{"decode", amf3__decode},
+	{"pack", amf3__pack},
+	{"unpack", amf3__unpack},
 	{0, 0}
 };
 

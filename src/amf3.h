@@ -1,5 +1,5 @@
 /*
-** Copyright (C) 2012-2018 Arseny Vakhrushev <arseny.vakhrushev@gmail.com>
+** Copyright (C) 2012-2019 Arseny Vakhrushev <arseny.vakhrushev@gmail.com>
 **
 ** Permission is hereby granted, free of charge, to any person obtaining a copy
 ** of this software and associated documentation files (the "Software"), to deal
@@ -23,6 +23,10 @@
 #pragma once
 
 #include <lauxlib.h>
+
+#ifndef _WIN32
+#pragma GCC visibility push(hidden)
+#endif
 
 #define MODNAME "lua-amf3"
 #define VERSION "2.0.0rc1"
@@ -57,8 +61,12 @@
 #define lua_rawlen(L, idx) lua_objlen(L, idx)
 #endif
 
-int amf3_encode(lua_State *L);
-int amf3_decode(lua_State *L);
+int amf3__encode(lua_State *L);
+int amf3__decode(lua_State *L);
 
-int amf3_pack(lua_State *L);
-int amf3_unpack(lua_State *L);
+int amf3__pack(lua_State *L);
+int amf3__unpack(lua_State *L);
+
+#ifndef _WIN32
+#pragma GCC visibility pop
+#endif
