@@ -143,18 +143,17 @@ local b, i, d, s = pack_unpack('bids', 123, 123456, -1.2, 'abc')
 -- This is helpful, for example, when objects are exchanged with both trusted and untrusted parties.
 -- Various custom filters/wrappers can also be implemented using this API.
 
-local function construct(t)
-    return setmetatable(t, {
-        __tostring = function (t) return (t.a or '') .. (t.b or '') end,
-        __toA = function (t) return {A = t.a} end, -- [a -> A]
-        __toB = function (t) return {B = t.b} end, -- [b -> B]
-    })
-end
+local mt = {
+    __tostring = function (t) return (t.a or '') .. (t.b or '') end,
+    __toA = function (t) return {A = t.a} end, -- [a -> A]
+    __toB = function (t) return {B = t.b} end, -- [b -> B]
+}
 
-local function fromA(t) return construct{a = t.A} end -- [A -> a]
-local function fromB(t) return construct{b = t.B} end -- [B -> b]
+local function new(t) return setmetatable(t, mt) end
+local function fromA(t) return new{a = t.A} end -- [A -> a]
+local function fromB(t) return new{b = t.B} end -- [B -> b]
 
-local obj = construct{a = 'a', b = 'b'}
+local obj = new{a = 'a', b = 'b'}
 assert(tostring(obj) == 'ab')
 assert(tostring(encode_decode(obj, '__toA', fromA)) == 'a')
 assert(tostring(encode_decode(obj, '__toB', fromB)) == 'b')
