@@ -1,7 +1,13 @@
 AMF3 encoding/decoding library for Lua
 ======================================
 
-[lua-amf3] provides the following API:
+[lua-amf3] provides fast AMF3 encoding/decoding routines for Lua:
+- Support for inline data transformation/filtering via metamethods/handlers.
+- Additional binary packing/unpacking routines.
+- Properly protected against memory allocation errors.
+- No external dependencies.
+- Written in C.
+
 
 ### amf3.encode(value, [event])
 Returns a binary string containing an AMF3 representation of `value`. Optional `event` may be used
