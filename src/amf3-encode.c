@@ -258,7 +258,7 @@ static int getTableType(lua_State *L, int idx, int *len) {
 	lua_getfield(L, idx, "__array");
 	if (lua_toboolean(L, -1)) {
 		res = LUA_TNUMBER; /* Dense array */
-		if (!isInteger(L, -1, &i)) i = (lua_Integer)lua_rawlen(L, idx);
+		if (!isInteger(L, -1, &i)) i = lua_rawlen(L, idx);
 		if (i < 0) i = 0;
 	} else {
 		res = LUA_TSTRING; /* Associative array */
