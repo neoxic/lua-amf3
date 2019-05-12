@@ -4,14 +4,13 @@ source = {
 	url = 'git://github.com/neoxic/lua-amf3.git',
 }
 description = {
-	summary = 'AMF3 encoding/decoding library for Lua',
+	summary = 'AMF3 encoding/decoding module for Lua',
 	detailed = [[
 		lua-amf3 provides fast AMF3 encoding/decoding routines for Lua:
 		- Support for inline data transformation/filtering via metamethods/handlers.
 		- Additional binary packing/unpacking routines.
-		- Properly protected against memory allocation errors.
+		- Written in C with 32/64-bit little/big-endian awareness.
 		- No external dependencies.
-		- Written in C.
 	]],
 	license = 'MIT',
 	homepage = 'https://github.com/neoxic/lua-amf3',

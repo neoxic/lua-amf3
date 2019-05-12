@@ -1,12 +1,11 @@
-AMF3 encoding/decoding library for Lua
-======================================
+AMF3 encoding/decoding module for Lua
+=====================================
 
 [lua-amf3] provides fast AMF3 encoding/decoding routines for Lua:
 - Support for inline data transformation/filtering via metamethods/handlers.
 - Additional binary packing/unpacking routines.
-- Properly protected against memory allocation errors.
+- Written in C with 32/64-bit little/big-endian awareness.
 - No external dependencies.
-- Written in C.
 
 
 ### amf3.encode(value, [event])
