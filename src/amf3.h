@@ -29,7 +29,7 @@
 #endif
 
 #define MODNAME "lua-amf3"
-#define VERSION "2.0.0"
+#define VERSION "2.0.1"
 
 #define AMF3_UNDEFINED     0x00
 #define AMF3_NULL          0x01
