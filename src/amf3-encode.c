@@ -32,11 +32,11 @@ typedef struct {
 	size_t pos, size;
 } Box;
 
-static void *resizeBox(lua_State *L, Box *box, size_t size) {
+static char *resizeBox(lua_State *L, Box *box, size_t size) {
 	void *ud;
 	lua_Alloc allocf = lua_getallocf(L, &ud);
 	int dyn = box->buf != box->data; /* Dynamically allocated? */
-	void *buf = dyn ? allocf(ud, box->buf, box->size, size) : allocf(ud, 0, 0, size);
+	char *buf = dyn ? allocf(ud, box->buf, box->size, size) : allocf(ud, 0, 0, size);
 	if (!size) return 0;
 	if (!buf) luaL_error(L, "cannot allocate buffer");
 	if (!dyn) memcpy(buf, box->buf, box->pos);
@@ -63,7 +63,7 @@ static Box *newBox(lua_State *L) {
 	return box;
 }
 
-static void *appendData(lua_State *L, Box *box, size_t size) {
+static char *appendData(lua_State *L, Box *box, size_t size) {
 	char *buf = box->buf;
 	size_t pos = box->pos;
 	size_t old = box->size;
@@ -81,7 +81,7 @@ static void encodeData(lua_State *L, Box *box, const char *data, size_t size) {
 }
 
 static void encodeByte(lua_State *L, Box *box, char val) {
-	encodeData(L, box, &val, 1);
+	*appendData(L, box, 1) = val;
 }
 
 static void encodeU29(lua_State *L, Box *box, int val) {
