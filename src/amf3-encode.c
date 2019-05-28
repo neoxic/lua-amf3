@@ -20,7 +20,6 @@
 ** THE SOFTWARE.
 */
 
-#include <stdarg.h>
 #include <stdint.h>
 #include <string.h>
 #include "amf3.h"
@@ -193,9 +192,8 @@ static int errorTrace(lua_State *L, int *nerr, int idx) {
 
 static int encodeValue(lua_State *L, Box *box, int idx, const char *ev, int sidx, int oidx, int *tf, int *nerr);
 
-static int encodeArray(lua_State *L, Box *box, int idx, const char *ev, int sidx, int oidx, int *tf, int *nerr, int len) {
-	int i, top = lua_gettop(L);
-	if (encodeRef(L, box, idx, oidx)) return 1;
+static int encodeArray(lua_State *L, Box *box, int idx, const char *ev, int sidx, int oidx, int *tf, int *nerr, int len, int top) {
+	int i;
 	encodeU29(L, box, (len << 1) | 1);
 	encodeByte(L, box, 0x01); /* Empty associative part */
 	for (i = 0; i < len; ++i) {
@@ -206,9 +204,7 @@ static int encodeArray(lua_State *L, Box *box, int idx, const char *ev, int sidx
 	return 1;
 }
 
-static int encodeObject(lua_State *L, Box *box, int idx, const char *ev, int sidx, int oidx, int *tf, int *nerr) {
-	int top = lua_gettop(L);
-	if (encodeRef(L, box, idx, oidx)) return 1;
+static int encodeObject(lua_State *L, Box *box, int idx, const char *ev, int sidx, int oidx, int *tf, int *nerr, int top) {
 	if (*tf) encodeByte(L, box, 0x01); /* Traits have been encoded earlier */
 	else {
 		*tf = 1;
@@ -219,13 +215,11 @@ static int encodeObject(lua_State *L, Box *box, int idx, const char *ev, int sid
 		encodeString(L, box, top + 1, sidx);
 		if (!encodeValue(L, box, top + 2, ev, sidx, oidx, tf, nerr)) return errorTrace(L, nerr, top + 1);
 	}
-	encodeByte(L, box, 0x01);
+	encodeByte(L, box, 0x01); /* Empty key */
 	return 1;
 }
 
-static int encodeDictionary(lua_State *L, Box *box, int idx, const char *ev, int sidx, int oidx, int *tf, int *nerr, int len) {
-	int top = lua_gettop(L);
-	if (encodeRef(L, box, idx, oidx)) return 1;
+static int encodeDictionary(lua_State *L, Box *box, int idx, const char *ev, int sidx, int oidx, int *tf, int *nerr, int len, int top) {
 	encodeU29(L, box, (len << 1) | 1);
 	encodeByte(L, box, 0x00); /* weak-keys=0 */
 	for (lua_pushnil(L); lua_next(L, idx); lua_pop(L, 1)) {
@@ -298,20 +292,21 @@ static int encodeValueData(lua_State *L, Box *box, int idx, const char *ev, int 
 			encodeString(L, box, idx, sidx);
 			break;
 		case LUA_TTABLE: {
-			int len;
-			if (lua_gettop(L) >= MAXSTACK) return error(L, nerr, "recursion detected");
+			int len, top = lua_gettop(L);
+			if (top >= MAXSTACK) return error(L, nerr, "recursion detected");
 			if (lua_getmetatable(L, idx)) return error(L, nerr, "table with metatable unexpected");
+			if (encodeRef(L, box, idx, oidx)) break;
 			checkStack(L);
 			switch (getTableType(L, idx, &len)) {
 				case LUA_TNUMBER:
 					encodeByte(L, box, AMF3_ARRAY);
-					return encodeArray(L, box, idx, ev, sidx, oidx, tf, nerr, len);
+					return encodeArray(L, box, idx, ev, sidx, oidx, tf, nerr, len, top);
 				case LUA_TSTRING:
 					encodeByte(L, box, AMF3_OBJECT);
-					return encodeObject(L, box, idx, ev, sidx, oidx, tf, nerr);
+					return encodeObject(L, box, idx, ev, sidx, oidx, tf, nerr, top);
 				default:
 					encodeByte(L, box, AMF3_DICTIONARY);
-					return encodeDictionary(L, box, idx, ev, sidx, oidx, tf, nerr, len);
+					return encodeDictionary(L, box, idx, ev, sidx, oidx, tf, nerr, len, top);
 			}
 		}
 		case LUA_TLIGHTUSERDATA:
@@ -334,15 +329,13 @@ static int encodeValue(lua_State *L, Box *box, int idx, const char *ev, int sidx
 
 int amf3__encode(lua_State *L) {
 	Box *box;
-	const char *ev;
 	int tf = 0, nerr = 0;
+	const char *ev = luaL_optstring(L, 2, "__toAMF3");
 	luaL_checkany(L, 1);
-	ev = luaL_optstring(L, 2, "__toAMF3");
 	lua_settop(L, 2);
 	lua_newtable(L);
 	lua_newtable(L);
-	box = newBox(L);
-	if (!encodeValue(L, box, 1, ev, 3, 4, &tf, &nerr)) {
+	if (!encodeValue(L, box = newBox(L), 1, ev, 3, 4, &tf, &nerr)) {
 		lua_concat(L, nerr);
 		return luaL_argerror(L, 1, lua_tostring(L, -1));
 	}

@@ -323,10 +323,10 @@ static size_t decodeValueData(lua_State *L, const char *buf, size_t pos, size_t 
 
 static size_t decodeValue(lua_State *L, const char *buf, size_t pos, size_t size, int hidx, int sidx, int oidx, int tidx) {
 	pos = decodeValueData(L, buf, pos, size, hidx, sidx, oidx, tidx);
-	if (!lua_istable(L, -1) || lua_isnil(L, hidx)) return pos;
+	if (lua_isnil(L, hidx) || !lua_istable(L, -1)) return pos;
 	lua_pushvalue(L, hidx);
 	lua_insert(L, -2);
-	lua_call(L, 1, 1); /* Call handler */
+	lua_call(L, 1, 1); /* Transform value */
 	return pos;
 }
 
