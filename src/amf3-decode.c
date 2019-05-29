@@ -114,16 +114,18 @@ static size_t decodeRef(lua_State *L, const char *buf, size_t pos, size_t size, 
 	return pos;
 }
 
+static void storeRef(lua_State *L, int ridx) {
+	lua_pushvalue(L, -1);
+	lua_rawseti(L, ridx, lua_rawlen(L, ridx) + 1);
+}
+
 static size_t decodeString(lua_State *L, const char *buf, size_t pos, size_t size, int ridx, int blob) {
 	int len;
 	pos = decodeRef(L, buf, pos, size, ridx, &len);
 	if (len == -1) return pos;
 	if (pos + len > size) luaL_error(L, "insufficient data of length %d at position %d", len, pos + 1);
 	lua_pushlstring(L, buf + pos, len);
-	if (blob || len) { /* Empty string is never sent by reference */
-		lua_pushvalue(L, -1);
-		luaL_ref(L, ridx);
-	}
+	if (blob || len) storeRef(L, ridx); /* Empty string is never sent by reference */
 	return pos + len;
 }
 
@@ -132,8 +134,7 @@ static size_t decodeDate(lua_State *L, const char *buf, size_t pos, size_t size,
 	pos = decodeRef(L, buf, pos, size, ridx, &pfx);
 	if (pfx == -1) return pos;
 	pos = decodeDouble(L, buf, pos, size);
-	lua_pushvalue(L, -1);
-	luaL_ref(L, ridx);
+	storeRef(L, ridx);
 	return pos;
 }
 
@@ -144,8 +145,7 @@ static size_t decodeArray(lua_State *L, const char *buf, size_t pos, size_t size
 	pos = decodeRef(L, buf, pos, size, oidx, &len);
 	if (len == -1) return pos;
 	lua_newtable(L);
-	lua_pushvalue(L, -1);
-	luaL_ref(L, oidx);
+	storeRef(L, oidx);
 	checkStack(L);
 	for (;;) { /* Associative part */
 		pos = decodeString(L, buf, pos, size, sidx, 0);
@@ -174,8 +174,7 @@ static size_t decodeObject(lua_State *L, const char *buf, size_t pos, size_t siz
 	if (def) { /* New traits */
 		int i, n = pfx >> 2;
 		lua_newtable(L);
-		lua_pushvalue(L, -1);
-		luaL_ref(L, tidx);
+		storeRef(L, tidx);
 		lua_pushinteger(L, pfx);
 		lua_rawseti(L, -2, 1);
 		pos = decodeString(L, buf, pos, size, sidx, 0); /* Class name */
@@ -192,8 +191,7 @@ static size_t decodeObject(lua_State *L, const char *buf, size_t pos, size_t siz
 		lua_pop(L, 1);
 	}
 	lua_newtable(L);
-	lua_pushvalue(L, -1);
-	luaL_ref(L, oidx);
+	storeRef(L, oidx);
 	checkStack(L);
 	if (pfx & 1) { /* Externalizable */
 		pos = decodeValue(L, buf, pos, size, hidx, sidx, oidx, tidx);
@@ -247,8 +245,7 @@ static size_t decodeVector(lua_State *L, const char *buf, size_t pos, size_t siz
 		lua_pop(L, 1);
 	}
 	lua_newtable(L);
-	lua_pushvalue(L, -1);
-	luaL_ref(L, oidx);
+	storeRef(L, oidx);
 	checkStack(L);
 	for (i = 0; i < len; ++i) {
 		pos = decodeVectorItem(L, buf, pos, size, hidx, sidx, oidx, tidx, type);
@@ -263,8 +260,7 @@ static size_t decodeDictionary(lua_State *L, const char *buf, size_t pos, size_t
 	if (len == -1) return pos;
 	pos = decodeByte(L, buf, pos, size, &i); /* 'weak-keys' marker */
 	lua_newtable(L);
-	lua_pushvalue(L, -1);
-	luaL_ref(L, oidx);
+	storeRef(L, oidx);
 	checkStack(L);
 	while (len--) {
 		pos = decodeValue(L, buf, pos, size, hidx, sidx, oidx, tidx);
