@@ -27,18 +27,16 @@
 #define MAXSTACK 1000 /* Arbitrary stack size limit to check for recursion */
 
 typedef struct {
-	char *buf, data[1024];
+	char *buf;
 	size_t pos, size;
 } Box;
 
 static char *resizeBox(lua_State *L, Box *box, size_t size) {
 	void *ud;
 	lua_Alloc allocf = lua_getallocf(L, &ud);
-	int dyn = box->buf != box->data; /* Dynamically allocated? */
-	char *buf = dyn ? allocf(ud, box->buf, box->size, size) : allocf(ud, 0, 0, size);
+	char *buf = allocf(ud, box->buf, box->size, size);
 	if (!size) return 0;
 	if (!buf) luaL_error(L, "cannot allocate buffer");
-	if (!dyn) memcpy(buf, box->buf, box->pos);
 	box->buf = buf;
 	box->size = size;
 	return buf;
@@ -51,14 +49,15 @@ static int m__gc(lua_State *L) {
 
 static Box *newBox(lua_State *L) {
 	Box *box = lua_newuserdata(L, sizeof *box);
-	box->buf = box->data;
+	box->buf = 0;
 	box->pos = 0;
-	box->size = sizeof box->data;
+	box->size = 0;
 	if (luaL_newmetatable(L, MODNAME)) {
 		lua_pushcfunction(L, m__gc);
 		lua_setfield(L, -2, "__gc");
 	}
 	lua_setmetatable(L, -2);
+	resizeBox(L, box, 100);
 	return box;
 }
 
