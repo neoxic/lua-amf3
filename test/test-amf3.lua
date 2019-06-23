@@ -237,6 +237,13 @@ for i = 1, #strs do
 	assert(pos == #str + 1)
 end
 
+-- Errors
+assert(not pcall(amf3.encode, setmetatable({}, {}))) -- Table with metatable
+assert(not pcall(amf3.encode, setmetatable({}, {__toAMF3 = function (t) return {t = t} end}))) -- Recursion
+assert(not pcall(amf3.encode, setmetatable({}, {__toAMF3 = function (t) t() end}))) -- Run-time error
+assert(not pcall(amf3.encode, {a = print})) -- Invalid value
+assert(not pcall(amf3.encode, {[print] = 1})) -- Invalid key
+
 ----------------------
 -- Pack/unpack test --
 ----------------------
