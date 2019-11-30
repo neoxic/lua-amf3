@@ -100,7 +100,8 @@ static size_t decodeDouble(lua_State *L, const char *buf, size_t pos, size_t siz
 }
 
 static size_t decodeRef(lua_State *L, const char *buf, size_t pos, size_t size, int ridx, int *val) {
-	int pfx, def, pos_ = pos;
+	int pfx, def;
+	size_t pos_ = pos;
 	pos = decodeU29(L, buf, pos, size, &pfx);
 	def = pfx & 1;
 	pfx >>= 1;
@@ -166,7 +167,8 @@ static size_t decodeArray(lua_State *L, const char *buf, size_t pos, size_t size
 }
 
 static size_t decodeObject(lua_State *L, const char *buf, size_t pos, size_t size, int hidx, int sidx, int oidx, int tidx) {
-	int pfx, def, pos_ = pos;
+	int pfx, def;
+	size_t pos_ = pos;
 	pos = decodeRef(L, buf, pos, size, oidx, &pfx);
 	if (pfx == -1) return pos;
 	def = pfx & 1;
@@ -272,7 +274,8 @@ static size_t decodeDictionary(lua_State *L, const char *buf, size_t pos, size_t
 }
 
 static size_t decodeValueData(lua_State *L, const char *buf, size_t pos, size_t size, int hidx, int sidx, int oidx, int tidx) {
-	int type, pos_ = pos;
+	int type;
+	size_t pos_ = pos;
 	pos = decodeByte(L, buf, pos, size, &type);
 	switch (type) {
 		case AMF3_UNDEFINED:
