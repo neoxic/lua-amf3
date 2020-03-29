@@ -248,8 +248,8 @@ assert(not pcall(amf3.encode, {[print] = 1})) -- Invalid key
 -- Pack/unpack test --
 ----------------------
 
-local fmt = 'biiuIIUdsSsS'
-local args = {255, -268435456, 268435455, 536870911, -2147483648, 2147483647, 4294967295, -10.2, '', '', 'abc', '1234567890'}
+local fmt = 'biiuIIUfdsSsS'
+local args = {255, -268435456, 268435455, 536870911, -2147483648, 2147483647, 4294967295, -123, -10.2, '', '', 'abc', '1234567890'}
 local unpack = table.unpack or unpack
 local str = amf3.pack(fmt, unpack(args))
 table.insert(args, #str + 1)

@@ -23,6 +23,12 @@
 #include <string.h>
 #include "amf3.h"
 
+static void decodeEndianData(const char *buf, char *data, size_t size) {
+	size_t i = 1;
+	if (!*(char *)&i) memcpy(data, buf, size); /* Big-endian */
+	else for (i = 0; i < size; ++i) data[i] = buf[size - i - 1]; /* Little-endian */
+}
+
 static size_t decodeByte(lua_State *L, const char *buf, size_t pos, size_t size, int *val) {
 	if (pos >= size) luaL_error(L, "insufficient data at position %d", pos + 1);
 	*val = buf[pos] & 0xff;
@@ -57,17 +63,8 @@ static size_t decodeInteger(lua_State *L, const char *buf, size_t pos, size_t si
 }
 
 static size_t decodeU32(lua_State *L, const char *buf, size_t pos, size_t size, unsigned *val) {
-	union { int i; char c; } t;
-	union { unsigned u; char c[4]; } u;
 	if (pos + 4 > size) luaL_error(L, "insufficient U32 data at position %d", pos + 1);
-	buf += pos;
-	t.i = 1;
-	if (!t.c) memcpy(u.c, buf, 4);
-	else { /* Little-endian machine */
-		int i;
-		for (i = 0; i < 4; ++i) u.c[i] = buf[3 - i];
-	}
-	*val = u.u;
+	decodeEndianData(buf + pos, (char *)val, 4);
 	return pos + 4;
 }
 
@@ -84,18 +81,19 @@ static size_t decodeInt32(lua_State *L, const char *buf, size_t pos, size_t size
 	return pos;
 }
 
+static size_t decodeFloat(lua_State *L, const char *buf, size_t pos, size_t size) {
+	float val;
+	if (pos + 4 > size) luaL_error(L, "insufficient IEEE-754 data at position %d", pos + 1);
+	decodeEndianData(buf + pos, (char *)&val, 4);
+	lua_pushnumber(L, val);
+	return pos + 4;
+}
+
 static size_t decodeDouble(lua_State *L, const char *buf, size_t pos, size_t size) {
-	union { int i; char c; } t;
-	union { double d; char c[8]; } u;
+	double val;
 	if (pos + 8 > size) luaL_error(L, "insufficient IEEE-754 data at position %d", pos + 1);
-	buf += pos;
-	t.i = 1;
-	if (!t.c) memcpy(u.c, buf, 8);
-	else { /* Little-endian machine */
-		int i;
-		for (i = 0; i < 8; ++i) u.c[i] = buf[7 - i];
-	}
-	lua_pushnumber(L, u.d);
+	decodeEndianData(buf + pos, (char *)&val, 8);
+	lua_pushnumber(L, val);
 	return pos + 8;
 }
 
@@ -368,6 +366,9 @@ int amf3__unpack(lua_State *L) {
 				break;
 			case 'U':
 				pos = decodeInt32(L, buf, pos, size, 0);
+				break;
+			case 'f':
+				pos = decodeFloat(L, buf, pos, size);
 				break;
 			case 'd':
 				pos = decodeDouble(L, buf, pos, size);

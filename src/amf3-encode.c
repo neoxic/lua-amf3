@@ -78,6 +78,13 @@ static void encodeData(lua_State *L, Box *box, const char *data, size_t size) {
 	memcpy(appendData(L, box, size), data, size);
 }
 
+static void encodeEndianData(lua_State *L, Box *box, const char *data, size_t size) {
+	size_t i = 1;
+	char *buf = appendData(L, box, size);
+	if (!*(char *)&i) memcpy(buf, data, size); /* Big-endian */
+	else for (i = 0; i < size; ++i) buf[size - i - 1] = data[i]; /* Little-endian */
+}
+
 static void encodeByte(lua_State *L, Box *box, char val) {
 	*appendData(L, box, 1) = val;
 }
@@ -109,31 +116,15 @@ static void encodeU29(lua_State *L, Box *box, int val) {
 }
 
 static void encodeU32(lua_State *L, Box *box, int val) {
-	union { int i; char c; } t;
-	union { unsigned u; char c[4]; } u;
-	char buf[4];
-	t.i = 1;
-	u.u = val;
-	if (!t.c) memcpy(buf, u.c, 4);
-	else { /* Little-endian machine */
-		int i;
-		for (i = 0; i < 4; ++i) buf[3 - i] = u.c[i];
-	}
-	encodeData(L, box, buf, 4);
+	encodeEndianData(L, box, (char *)&val, 4);
+}
+
+static void encodeFloat(lua_State *L, Box *box, float val) {
+	encodeEndianData(L, box, (char *)&val, 4);
 }
 
 static void encodeDouble(lua_State *L, Box *box, double val) {
-	union { int i; char c; } t;
-	union { double d; char c[8]; } u;
-	char buf[8];
-	t.i = 1;
-	u.d = val;
-	if (!t.c) memcpy(buf, u.c, 8);
-	else { /* Little-endian machine */
-		int i;
-		for (i = 0; i < 8; ++i) buf[7 - i] = u.c[i];
-	}
-	encodeData(L, box, buf, 8);
+	encodeEndianData(L, box, (char *)&val, 8);
 }
 
 static int encodeRef(lua_State *L, Box *box, int idx, int ridx) {
@@ -381,6 +372,9 @@ int amf3__pack(lua_State *L) {
 				encodeU32(L, box, i);
 				break;
 			}
+			case 'f':
+				encodeFloat(L, box, luaL_checknumber(L, arg));
+				break;
 			case 'd':
 				encodeDouble(L, box, luaL_checknumber(L, arg));
 				break;

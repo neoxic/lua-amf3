@@ -33,7 +33,8 @@ A format string is a sequence of the following options:
 - `I`: a signed integer packed as a U32 value;
 - `u`: an unsigned integer packed as a U29 value;
 - `U`: an unsigned integer packed as a U32 value;
-- `d`: a number packed as an 8 byte IEEE-754 double precision value;
+- `f`: a number packed as a 32-bit IEEE-754 single precision value;
+- `d`: a number packed as a 64-bit IEEE-754 double precision value;
 - `s`: a string preceded by its length packed as a U29 value;
 - `S`: a string preceded by its length packed as a U32 value;
 
