@@ -392,6 +392,7 @@ int amf3__unpack(lua_State *L) {
 			default:
 				return luaL_error(L, "invalid format option '%c'", opt);
 		}
+		luaL_checkstack(L, 1, "too many packed values");
 	}
 	lua_pushinteger(L, pos + 1);
 	return nres + 1;

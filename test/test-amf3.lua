@@ -255,6 +255,14 @@ local str = amf3.pack(fmt, unpack(args))
 table.insert(args, #str + 1)
 assert(compare(args, {amf3.unpack(fmt, str)}))
 
+-- Stack growth test
+local s1 = "b"
+local s2 = amf3.pack(s1, 0)
+assert(#{amf3.unpack(s1:rep(1000), s2:rep(1000))} == 1001)
+if _VERSION ~= 'Lua 5.1' then -- This test fails on Lua 5.1 built with LUA_USE_APICHECK
+	assert(not pcall(amf3.unpack, s1:rep(1000000), s2:rep(1000000))) -- Too many packed values
+end
+
 -- Range checks
 assert(not pcall(amf3.pack, 'b', -1))
 assert(not pcall(amf3.pack, 'b', 256))
