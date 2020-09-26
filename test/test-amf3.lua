@@ -74,48 +74,48 @@ local function spawn()
 	return any(0)
 end
 
-local function compare(v1, v2)
+local function compare(x1, x2)
 	local r = {}
-	local function compare(v1, v2)
-		if type(v1) ~= 'table' or type(v2) ~= 'table' then
-			return v1 == v2
+	local function compare(x1, x2)
+		if type(x1) ~= 'table' or type(x2) ~= 'table' then
+			return x1 == x2
 		end
-		if v1 == v2  then
+		if x1 == x2  then
 			return true
 		end
-		if not compare(getmetatable(v1), getmetatable(v2)) then
+		if not compare(getmetatable(x1), getmetatable(x2)) then
 			return false
 		end
-		if r[v1] and r[v2] then
+		if r[x1] and r[x2] then
 			return true
 		end
-		r[v1] = true
-		r[v2] = true
-		local function find(t, xk, xv)
-			if t[xk] == xv then
+		r[x1] = true
+		r[x2] = true
+		local function find(t, k_, v_)
+			if t[k_] == v_ then
 				return true
 			end
 			for k, v in pairs(t) do
-				if compare(k, xk) and compare(v, xv) then
+				if compare(k, k_) and compare(v, v_) then
 					return true
 				end
 			end
 		end
-		for k, v in pairs(v1) do
-			if not find(v2, k, v) then
+		for k, v in pairs(x1) do
+			if not find(x2, k, v) then
 				return false
 			end
 		end
-		for k, v in pairs(v2) do
-			if not find(v1, k, v) then
+		for k, v in pairs(x2) do
+			if not find(x1, k, v) then
 				return false
 			end
 		end
-		r[v1] = nil
-		r[v2] = nil
+		r[x1] = nil
+		r[x2] = nil
 		return true
 	end
-	return compare(v1, v2)
+	return compare(x1, x2)
 end
 
 local function handler(t)
