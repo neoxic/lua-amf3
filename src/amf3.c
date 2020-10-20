@@ -22,14 +22,6 @@
 
 #include "amf3.h"
 
-#ifdef _WIN32
-#define EXPORT __declspec(dllexport)
-#else
-#define EXPORT __attribute__((visibility("default")))
-#endif
-
-EXPORT int luaopen_amf3(lua_State *L);
-
 static const luaL_Reg funcs[] = {
 	{"encode", amf3__encode},
 	{"decode", amf3__decode},
@@ -40,7 +32,7 @@ static const luaL_Reg funcs[] = {
 
 int luaopen_amf3(lua_State *L) {
 #if LUA_VERSION_NUM < 502
-	luaL_register(L, lua_tostring(L, 1), funcs);
+	luaL_register(L, "amf3", funcs);
 #else
 	luaL_newlib(L, funcs);
 #endif
