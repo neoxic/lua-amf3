@@ -42,7 +42,7 @@ static char *resizeBox(lua_State *L, Box *box, size_t size) {
 	return buf;
 }
 
-static int m__gc(lua_State *L) {
+static int freeBox(lua_State *L) {
 	resizeBox(L, lua_touserdata(L, 1), 0);
 	return 0;
 }
@@ -53,7 +53,7 @@ static Box *newBox(lua_State *L) {
 	box->pos = 0;
 	box->size = 0;
 	if (luaL_newmetatable(L, MODNAME)) {
-		lua_pushcfunction(L, m__gc);
+		lua_pushcfunction(L, freeBox);
 		lua_setfield(L, -2, "__gc");
 	}
 	lua_setmetatable(L, -2);
