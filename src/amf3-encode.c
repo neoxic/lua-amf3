@@ -160,6 +160,9 @@ static void encodeString(lua_State *L, Box *box, int idx, int ridx) {
 static int error(lua_State *L, int *nerr, const char *fmt, ...) {
 	va_list ap;
 	va_start(ap, fmt);
+#if LUA_VERSION_NUM >= 504
+	luaL_checkstack(L, 1, 0);
+#endif
 	lua_pushvfstring(L, fmt, ap);
 	va_end(ap);
 	lua_insert(L, -(++(*nerr)));
@@ -184,6 +187,7 @@ static int encodeValue(lua_State *L, Box *box, int idx, const char *ev, int sidx
 
 static int encodeArray(lua_State *L, Box *box, int idx, const char *ev, int sidx, int oidx, int *tf, int *nerr, int len, int top) {
 	int i;
+	if (encodeRef(L, box, idx, oidx)) return 1;
 	encodeU29(L, box, (len << 1) | 1);
 	encodeByte(L, box, 0x01); /* Empty associative part */
 	for (i = 0; i < len; ++i) {
@@ -195,6 +199,7 @@ static int encodeArray(lua_State *L, Box *box, int idx, const char *ev, int sidx
 }
 
 static int encodeObject(lua_State *L, Box *box, int idx, const char *ev, int sidx, int oidx, int *tf, int *nerr, int top) {
+	if (encodeRef(L, box, idx, oidx)) return 1;
 	if (*tf) encodeByte(L, box, 0x01); /* Traits have been encoded earlier */
 	else {
 		*tf = 1;
@@ -210,6 +215,7 @@ static int encodeObject(lua_State *L, Box *box, int idx, const char *ev, int sid
 }
 
 static int encodeDictionary(lua_State *L, Box *box, int idx, const char *ev, int sidx, int oidx, int *tf, int *nerr, int len, int top) {
+	if (encodeRef(L, box, idx, oidx)) return 1;
 	encodeU29(L, box, (len << 1) | 1);
 	encodeByte(L, box, 0x00); /* weak-keys=0 */
 	for (lua_pushnil(L); lua_next(L, idx); lua_pop(L, 1)) {
@@ -285,7 +291,6 @@ static int encodeValueData(lua_State *L, Box *box, int idx, const char *ev, int 
 			int len, top = lua_gettop(L);
 			if (top >= MAXSTACK) return error(L, nerr, "recursion detected");
 			if (lua_getmetatable(L, idx)) return error(L, nerr, "table with metatable unexpected");
-			if (encodeRef(L, box, idx, oidx)) break;
 			checkStack(L);
 			switch (getTableType(L, idx, &len)) {
 				case LUA_TNUMBER:
