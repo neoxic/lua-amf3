@@ -25,7 +25,7 @@
 #include <lauxlib.h>
 
 #define MODNAME "lua-amf3"
-#define VERSION "2.0.4"
+#define VERSION "2.0.5"
 
 #define AMF3_UNDEFINED     0x00
 #define AMF3_NULL          0x01
