@@ -250,6 +250,9 @@ assert(not pcall(amf3.encode, {[print] = 1})) -- Invalid key
 
 local fmt = 'biiuIIUfdsSsS'
 local args = {255, -268435456, 268435455, 536870911, -2147483648, 2147483647, 4294967295, -123, -10.2, '', '', 'abc', '1234567890'}
+if _VERSION == 'Lua 5.1' and not jit then -- Lua 5.1 32-bit has less precision due to flaw in luaL_checkinteger()
+	args[7] = 2147483648
+end
 local unpack = table.unpack or unpack
 local str = amf3.pack(fmt, unpack(args))
 table.insert(args, #str + 1)
